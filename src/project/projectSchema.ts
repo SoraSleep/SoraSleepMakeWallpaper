@@ -21,6 +21,43 @@ export type MaskStroke = {
   points: Array<{ x: number; y: number }>;
 };
 
+export type ParallaxLayer = {
+  id: string;
+  name: string;
+  asset: ProjectAsset | null;
+  depth: number;
+  scale: number;
+  offsetX: number;
+  offsetY: number;
+  visible: boolean;
+};
+
+export type ParallaxSettings = {
+  mode: 'layers' | 'depth-map';
+  cameraStrength: number;
+  smoothing: number;
+  overscan: number;
+  depthPerspective: number;
+  layers: ParallaxLayer[];
+  depthMap: ProjectAsset | null;
+  mobile: {
+    input: 'touch' | 'gyroscope' | 'auto';
+    strength: number;
+    reducedMotion: boolean;
+  };
+};
+
+export const defaultParallaxSettings = (): ParallaxSettings => ({
+  mode: 'layers',
+  cameraStrength: 18,
+  smoothing: 72,
+  overscan: 12,
+  depthPerspective: 20,
+  layers: [],
+  depthMap: null,
+  mobile: { input: 'auto', strength: 16, reducedMotion: false },
+});
+
 export type MotionPairProject = {
   schemaVersion: typeof CURRENT_PROJECT_VERSION;
   id: string;
@@ -63,6 +100,7 @@ export type MotionPairProject = {
     loop: 'repeat' | 'pingpong';
   };
   mobileRender: { quality: 'economy' | 'standard' | 'premium'; width: number; height: number; fps: 24 | 30 };
+  parallax: ParallaxSettings;
 };
 
 type ProjectSeed = Pick<MotionPairProject, 'title' | 'assets' | 'lens'>;
@@ -86,6 +124,7 @@ export function createProject(seed: ProjectSeed): MotionPairProject {
     lens: seed.lens,
     mobileMotion: { path: 'guided', duration: 8, loop: 'repeat' },
     mobileRender: { quality: 'standard', width: 1080, height: 1920, fps: 30 },
+    parallax: defaultParallaxSettings(),
   };
 }
 
@@ -164,6 +203,26 @@ export function parseProject(value: unknown): MotionPairProject {
   if (!isRecord(value.mobileRender) || !['economy', 'standard', 'premium'].includes(String(value.mobileRender.quality))
     || ![720, 1080, 1440].includes(Number(value.mobileRender.width)) || Number(value.mobileRender.height) !== Number(value.mobileRender.width) * 16 / 9
     || ![24, 30].includes(Number(value.mobileRender.fps))) throw new Error('Mobile render settings are invalid.');
+  if (value.parallax === undefined) value.parallax = defaultParallaxSettings();
+  if (!isRecord(value.parallax)
+    || !['layers', 'depth-map'].includes(String(value.parallax.mode))
+    || !isFiniteNumber(value.parallax.cameraStrength) || value.parallax.cameraStrength < 0 || value.parallax.cameraStrength > 60
+    || !isFiniteNumber(value.parallax.smoothing) || value.parallax.smoothing < 0 || value.parallax.smoothing > 100
+    || !isFiniteNumber(value.parallax.overscan) || value.parallax.overscan < 0 || value.parallax.overscan > 50
+    || !isFiniteNumber(value.parallax.depthPerspective) || value.parallax.depthPerspective < 0 || value.parallax.depthPerspective > 100
+    || !Array.isArray(value.parallax.layers)
+    || !isRecord(value.parallax.mobile)
+    || !['touch', 'gyroscope', 'auto'].includes(String(value.parallax.mobile.input))
+    || !isFiniteNumber(value.parallax.mobile.strength) || value.parallax.mobile.strength < 0 || value.parallax.mobile.strength > 60
+    || typeof value.parallax.mobile.reducedMotion !== 'boolean') throw new Error('Parallax settings are invalid.');
+  if (value.parallax.layers.some((layer) => !isRecord(layer)
+    || typeof layer.id !== 'string' || typeof layer.name !== 'string'
+    || (layer.asset !== null && !isAsset(layer.asset))
+    || !isFiniteNumber(layer.depth) || layer.depth < 0 || layer.depth > 1
+    || !isFiniteNumber(layer.scale) || layer.scale < 0.5 || layer.scale > 3
+    || !isFiniteNumber(layer.offsetX) || !isFiniteNumber(layer.offsetY)
+    || typeof layer.visible !== 'boolean')) throw new Error('Parallax layer settings are invalid.');
+  if (value.parallax.depthMap !== null && value.parallax.depthMap !== undefined && !isAsset(value.parallax.depthMap)) throw new Error('Parallax depth map is invalid.');
   if (!isRecord(value.canvas) || !isRecord(value.alignment) || !isRecord(value.difference)) {
     throw new Error('Project processing settings are incomplete.');
   }

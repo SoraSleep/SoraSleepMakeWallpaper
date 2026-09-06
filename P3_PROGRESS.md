@@ -45,8 +45,17 @@
 - [x] Mở rộng project schema để nhận `layered-parallax` an toàn.
 - [x] Production build thành công.
 
-## Bước tiếp theo — P3.1
+## Bước tiếp theo — P3.2
 
-- Thêm parallax project schema: layer list, depth, scale, offsets và mobile settings.
-- Migration cho project cũ và autosave/open project.
+- Xây Layer Composer: thêm/xóa/sắp thứ tự layer, depth, scale, offsets và visibility.
+- Tạo layer mặc định từ base artwork để preview có dữ liệu ngay.
 
+## P3.1 — Parallax project schema
+
+- [x] Thêm layer model: asset, depth, scale, offsets và visibility.
+- [x] Thêm camera strength, smoothing, overscan và depth perspective.
+- [x] Thêm optional depth map và mobile input settings.
+- [x] Thêm default settings cho project mới và project cũ thiếu parallax data.
+- [x] Nối parallax settings vào App project snapshot, autosave và open project.
+- [x] Validate chặt layer, depth map, ranges và mobile settings khi mở file.
+- [x] Production build và Portal export QA matrix thành công.

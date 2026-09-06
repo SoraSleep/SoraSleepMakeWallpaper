@@ -25,7 +25,7 @@ import { runAlignmentJob, type AlignmentMetrics } from './jobs/alignmentJob';
 import { runDifferenceJob, type DifferenceResult } from './jobs/differenceJob';
 import { loadAutosave, saveAutosave } from './project/autosave';
 import { downloadProject, exportWallpaperPackage, readProjectFile } from './project/projectFile';
-import { createProject, type MaskStroke, type MotionPairProject, type ProjectAsset, type ProjectPreset } from './project/projectSchema';
+import { createProject, defaultParallaxSettings, type MaskStroke, type MotionPairProject, type ParallaxSettings, type ProjectAsset, type ProjectPreset } from './project/projectSchema';
 import { validateWallpaperPackage } from './project/packageValidator';
 import { validateMobileCommercialExport } from './project/mobileCommercialValidator';
 import { exportMobileVideo } from './export/mobileVideoExport';
@@ -70,6 +70,7 @@ function App() {
   const [followSpeed, setFollowSpeed] = useState(78);
   const [mobileMotion, setMobileMotion] = useState<MotionPairProject['mobileMotion']>({ path: 'guided', duration: 8, loop: 'repeat' });
   const [mobileRender, setMobileRender] = useState<MotionPairProject['mobileRender']>({ quality: 'standard', width: 1080, height: 1920, fps: 30 });
+  const [parallaxSettings, setParallaxSettings] = useState<ParallaxSettings>(() => defaultParallaxSettings());
   const [showDifference, setShowDifference] = useState(false);
   const [comparisonMode, setComparisonMode] = useState<'composite' | 'overlay' | 'edges'>('composite');
   const [maskTool, setMaskTool] = useState<MaskStroke['mode']>('reveal');
@@ -123,11 +124,12 @@ function App() {
       difference: differenceSettings,
       mobileMotion,
       mobileRender,
+      parallax: parallaxSettings,
       target: projectTarget,
       preset: projectPreset,
       presetSettings: { ...snapshot.presetSettings, portal: { glow: portalGlow, ripple: portalRipple, rippleEnabled: portalRippleEnabled, reducedMotion } },
     };
-  }, [alignmentSettings, assetA, assetB, canvasSettings, differenceSettings, feather, followSpeed, magnification, mobileMotion, mobileRender, portalGlow, portalRipple, portalRippleEnabled, projectMeta, radius, reducedMotion, revealIntensity]);
+  }, [alignmentSettings, assetA, assetB, canvasSettings, differenceSettings, feather, followSpeed, magnification, mobileMotion, mobileRender, parallaxSettings, portalGlow, portalRipple, portalRippleEnabled, projectMeta, radius, reducedMotion, revealIntensity]);
 
   const applyProject = (nextProject: MotionPairProject) => {
     setProjectMeta({ id: nextProject.id, title: nextProject.title, createdAt: nextProject.createdAt });
@@ -140,6 +142,7 @@ function App() {
     setFollowSpeed(nextProject.lens.followSpeed);
     setMobileMotion(nextProject.mobileMotion);
     setMobileRender(nextProject.mobileRender);
+    setParallaxSettings(nextProject.parallax ?? defaultParallaxSettings());
     setProjectTarget(nextProject.target);
     setProjectPreset(nextProject.preset);
     setSelectedPresetId(nextProject.preset.id);
