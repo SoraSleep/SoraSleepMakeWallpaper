@@ -141,6 +141,18 @@
 - [x] Lưu quality/mask trong project schema.
 - [x] Production build và Portal export QA matrix thành công.
 
+## P3.11 — Final QA gate cho Layered Parallax
+
+- [x] Package validator yêu cầu tối thiểu một layer visible.
+- [x] Kiểm tra scale/depth nằm trong miền an toàn và scale đủ lớn theo overscan, camera strength và depth.
+- [x] Depth-map mode bắt buộc có depth map asset.
+- [x] Thêm smoke QA kiểm tra schema, renderer, Layer Composer, mobile input và Depth Map Editor không bị đứt wiring.
+- [x] Chạy production build, Portal export smoke và Parallax QA wiring.
+
+## Bước tiếp theo — P3.12
+
+- Xây runtime export riêng cho Layered Parallax (WebGL/Web và mobile video), sau đó kiểm thử trên thiết bị thật.
+
 ## Bước tiếp theo — P3.10
 
 - Tối ưu displacement theo quality tier và thêm mask vùng không méo.

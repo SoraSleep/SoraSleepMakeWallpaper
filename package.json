@@ -7,7 +7,8 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "preview": "vite preview",
-    "test:portal-export": "node scripts/portal-runtime-smoke.mjs"
+    "test:portal-export": "node scripts/portal-runtime-smoke.mjs",
+    "test:parallax-qa": "node scripts/parallax-qa.mjs"
   },
   "dependencies": {
     "@techstark/opencv-js": "^5.0.0-release.1",
