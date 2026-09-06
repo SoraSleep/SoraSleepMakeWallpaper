@@ -104,6 +104,19 @@
 - [x] Reduced Motion tắt auto drift và sensor motion.
 - [x] Production build và Portal export QA matrix thành công.
 
+## P3.7 — Depth Map foundation
+
+- [x] Thêm Depth Map mode vào Layer Composer.
+- [x] Upload depth map qua cùng image import worker và lưu asset metadata.
+- [x] Hiển thị preview grayscale với kích thước thật.
+- [x] Validate depth map asset khi mở project.
+- [x] Giữ rõ giới hạn: brush/displacement editing sẽ nối với renderer 2.5D tiếp theo.
+- [x] Production build thành công.
+
+## Bước tiếp theo — P3.8
+
+- Tạo brush chỉnh depth map và displacement preview.
+
 ## Bước tiếp theo — P3.7
 
 - Thêm depth-map mode, preview grayscale và brush chỉnh độ sâu.

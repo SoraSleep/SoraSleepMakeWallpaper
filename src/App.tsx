@@ -101,6 +101,7 @@ function App() {
   const [alignmentProgress, setAlignmentProgress] = useState<number | null>(null);
   const inputA = useRef<HTMLInputElement>(null);
   const inputB = useRef<HTMLInputElement>(null);
+  const depthInput = useRef<HTMLInputElement>(null);
   const projectInput = useRef<HTMLInputElement>(null);
   const importController = useRef<AbortController | null>(null);
   const alignmentController = useRef<AbortController | null>(null);
@@ -227,6 +228,15 @@ function App() {
     } finally {
       setImportProgress(null);
     }
+  };
+
+  const selectDepthMap = async (file: File | undefined) => {
+    if (!file) return;
+    try {
+      const asset = await importImageJob(file, new AbortController().signal, () => undefined);
+      setParallaxSettings((current) => ({ ...current, mode: 'depth-map', depthMap: asset }));
+      setProjectNotice('Depth map imported');
+    } catch (error) { setProjectNotice(error instanceof Error ? error.message : 'Depth map import failed'); }
   };
 
   const runAutoAlignment = async () => {
@@ -430,6 +440,7 @@ function App() {
           </button>
         </div>
         <input ref={projectInput} hidden type="file" accept=".wallproj,application/json" onChange={(event) => openProject(event.target.files?.[0])} />
+        <input ref={depthInput} hidden type="file" accept="image/png,image/jpeg,image/webp" onChange={(event) => selectDepthMap(event.target.files?.[0])} />
       </header>
 
       <EditorWorkflowRail
@@ -514,6 +525,7 @@ function App() {
         <InspectorBody
           project={project}
           selectedPresetId={selectedPresetId}
+          onDepthMap={() => depthInput.current?.click()}
           parallaxSettings={parallaxSettings}
           setParallaxSettings={setParallaxSettings}
           portalGlow={portalGlow}
@@ -583,6 +595,7 @@ function App() {
 function InspectorBody({
   project,
   selectedPresetId,
+  onDepthMap,
   parallaxSettings,
   setParallaxSettings,
   portalGlow,
@@ -646,6 +659,7 @@ function InspectorBody({
 }: {
   project: MotionPairProject;
   selectedPresetId: PresetId;
+  onDepthMap: () => void;
   parallaxSettings: ParallaxSettings;
   setParallaxSettings: React.Dispatch<React.SetStateAction<ParallaxSettings>>;
   portalGlow: number;
@@ -901,7 +915,7 @@ function InspectorBody({
   }
 
   if (selectedPresetId === 'layered-parallax') {
-    return <ParallaxComposer settings={parallaxSettings} setSettings={setParallaxSettings} assetA={assetA} assetB={assetB} onContinue={() => setActiveStep('Lens')} />;
+    return <ParallaxComposer settings={parallaxSettings} setSettings={setParallaxSettings} assetA={assetA} assetB={assetB} onDepthMap={onDepthMap} onContinue={() => setActiveStep('Lens')} />;
   }
 
   return (
@@ -963,7 +977,7 @@ function InspectorBody({
   );
 }
 
-function ParallaxComposer({ settings, setSettings, assetA, assetB, onContinue }: { settings: ParallaxSettings; setSettings: React.Dispatch<React.SetStateAction<ParallaxSettings>>; assetA: ProjectAsset; assetB: ProjectAsset; onContinue: () => void }) {
+function ParallaxComposer({ settings, setSettings, assetA, assetB, onDepthMap, onContinue }: { settings: ParallaxSettings; setSettings: React.Dispatch<React.SetStateAction<ParallaxSettings>>; assetA: ProjectAsset; assetB: ProjectAsset; onDepthMap: () => void; onContinue: () => void }) {
   const addLayer = (name: string, asset: ProjectAsset, depth: number) => setSettings((current) => ({ ...current, layers: [...current.layers, { id: globalThis.crypto?.randomUUID?.() ?? `layer-${Date.now()}`, name, asset, depth, scale: 1 + current.overscan / 100, offsetX: 0, offsetY: 0, visible: true }] }));
   const update = (id: string, changes: Partial<ParallaxSettings['layers'][number]>) => setSettings((current) => ({ ...current, layers: current.layers.map((layer) => layer.id === id ? { ...layer, ...changes } : layer) }));
   const move = (index: number, direction: -1 | 1) => setSettings((current) => { const next = index + direction; if (next < 0 || next >= current.layers.length) return current; const layers = [...current.layers]; [layers[index], layers[next]] = [layers[next], layers[index]]; return { ...current, layers }; });
@@ -975,6 +989,7 @@ function ParallaxComposer({ settings, setSettings, assetA, assetB, onContinue }:
     <div className="region-list">{settings.layers.map((layer, index) => <div className="region-row" key={layer.id}><span><i /><b>{layer.name}</b><small>Depth {layer.depth.toFixed(2)} · {layer.asset?.name ?? 'No asset'}</small></span><div className="layer-actions"><button disabled={index === 0} onClick={() => move(index, -1)}>↑</button><button disabled={index === settings.layers.length - 1} onClick={() => move(index, 1)}>↓</button><button onClick={() => update(layer.id, { visible: !layer.visible })}>{layer.visible ? 'Hide' : 'Show'}</button><button onClick={() => setSettings((current) => ({ ...current, layers: current.layers.filter((candidate) => candidate.id !== layer.id) }))}>Remove</button></div><div className="layer-controls"><RangeControl label="Depth" value={Math.round(layer.depth * 100)} min={0} max={100} unit="%" onChange={(value) => update(layer.id, { depth: value / 100 })} /><RangeControl label="Scale" value={Math.round(layer.scale * 100)} min={50} max={300} unit="%" onChange={(value) => update(layer.id, { scale: value / 100 })} /><RangeControl label="Offset X" value={Math.round(layer.offsetX)} min={-50} max={50} unit="%" onChange={(value) => update(layer.id, { offsetX: value })} /><RangeControl label="Offset Y" value={Math.round(layer.offsetY)} min={-50} max={50} unit="%" onChange={(value) => update(layer.id, { offsetY: value })} /></div></div>)}</div>
     <div className="control-group"><div className="control-title"><SlidersHorizontal size={15} /><span>CAMERA BASELINE</span></div><label className="field-row"><span>Camera mode</span><select value={settings.cameraMode} onChange={(event) => setSettings((current) => ({ ...current, cameraMode: event.target.value as ParallaxSettings['cameraMode'] }))}><option value="direct">Direct</option><option value="smooth">Smooth</option><option value="inertia">Inertia</option></select></label><label className="field-row"><span>Movement axis</span><select value={settings.axis} onChange={(event) => setSettings((current) => ({ ...current, axis: event.target.value as ParallaxSettings['axis'] }))}><option value="both">X + Y</option><option value="horizontal">Horizontal only</option><option value="vertical">Vertical only</option></select></label><RangeControl label="Camera strength" value={settings.cameraStrength} min={0} max={60} unit="%" onChange={(cameraStrength) => setSettings((current) => ({ ...current, cameraStrength }))} /><RangeControl label="Smoothing" value={settings.smoothing} min={0} max={100} unit="%" onChange={(smoothing) => setSettings((current) => ({ ...current, smoothing }))} /><RangeControl label="Overscan" value={settings.overscan} min={0} max={50} unit="%" onChange={(overscan) => setSettings((current) => ({ ...current, overscan }))} />{needsOverscanFix && <><div className="validator-warning">Some layers need at least {Math.round(requiredScale * 100)}% scale to cover the camera range.</div><button className="wide-secondary" onClick={() => setSettings((current) => ({ ...current, layers: current.layers.map((layer) => ({ ...layer, scale: Math.max(layer.scale, requiredScale) })) }))}>Auto fix overscan</button></>}</div>
     <div className="control-group"><div className="control-title"><MousePointer2 size={15} /><span>MOBILE INPUT</span></div><label className="field-row"><span>Input mode</span><select value={settings.mobile.input} onChange={(event) => setSettings((current) => ({ ...current, mobile: { ...current.mobile, input: event.target.value as ParallaxSettings['mobile']['input'] } }))}><option value="auto">Auto drift fallback</option><option value="touch">Touch drag</option><option value="gyroscope">Gyroscope</option></select></label><RangeControl label="Mobile strength" value={settings.mobile.strength} min={0} max={60} unit="%" onChange={(strength) => setSettings((current) => ({ ...current, mobile: { ...current.mobile, strength } }))} /><label className="field-row"><span>Reduced motion</span><input type="checkbox" checked={settings.mobile.reducedMotion} onChange={(event) => setSettings((current) => ({ ...current, mobile: { ...current.mobile, reducedMotion: event.target.checked } }))} /></label><button className="wide-secondary" onClick={async () => { const sensor = window.DeviceOrientationEvent as typeof DeviceOrientationEvent & { requestPermission?: () => Promise<string> }; if (sensor.requestPermission) await sensor.requestPermission(); setSettings((current) => ({ ...current, mobile: { ...current.mobile, input: 'gyroscope' } })); }}>Enable gyroscope</button></div>
+    <div className="control-group"><div className="control-title"><Layers3 size={15} /><span>DEPTH MAP 2.5D</span></div><label className="field-row"><span>Mode</span><select value={settings.mode} onChange={(event) => setSettings((current) => ({ ...current, mode: event.target.value as ParallaxSettings['mode'] }))}><option value="layers">Layer stack</option><option value="depth-map">Depth map</option></select></label><button className="wide-secondary" onClick={onDepthMap}>Upload grayscale depth map</button>{settings.depthMap && <><img className="depth-map-preview" src={settings.depthMap.source} alt="Depth map grayscale preview" /><div className="validator-warning">Depth map ready · {settings.depthMap.width} × {settings.depthMap.height}. White areas render closer to camera. Brush editing will be enabled with the 2.5D renderer.</div></>}</div>
     <StepFooter note={settings.layers.length ? `${settings.layers.length} layer(s) saved to project` : 'Layer stack is empty'} action="Continue to Parallax Renderer" onClick={onContinue} disabled={settings.layers.length === 0} />
   </>;
 }
