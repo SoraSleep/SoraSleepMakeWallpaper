@@ -44,7 +44,11 @@ export function ParallaxCanvas({ settings, fit, fps, onPerformance }: Props) {
         for (const { layer, image } of loaded) {
           if (!layer.visible) continue;
           const base = state.fit === 'contain' ? Math.min(width / image.width, height / image.height) : Math.max(width / image.width, height / image.height);
-          const scale = base * layer.scale;
+          // The layer must cover the camera excursion at its depth. Overscan
+          // is applied on top of the user's scale so corners never reveal the
+          // canvas background during parallax movement.
+          const requiredScale = 1 + state.settings.overscan / 100 + state.settings.cameraStrength * layer.depth / 100;
+          const scale = base * Math.max(layer.scale, requiredScale);
           const drawWidth = image.width * scale; const drawHeight = image.height * scale;
           const movement = state.settings.cameraStrength * layer.depth / 100;
           const x = (width - drawWidth) / 2 + (camera.current.x - 0.5) * width * movement + width * layer.offsetX / 100;

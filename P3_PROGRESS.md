@@ -77,3 +77,16 @@
 - [x] Tôn trọng Cover/Contain, FPS target và pause khi document ẩn.
 - [x] Tạo Base layer mặc định khi bắt đầu Parallax project mới.
 - [x] Production build và Portal export QA matrix thành công.
+
+## P3.4 — Overscan và anti-border
+
+- [x] Renderer tự tính scale tối thiểu theo camera strength, layer depth và overscan.
+- [x] Camera movement ở góc không làm lộ canvas background.
+- [x] Composer cảnh báo layer chưa đủ scale.
+- [x] Thêm Auto Fix Overscan cho toàn bộ layer stack.
+- [x] Production build và Portal export QA matrix thành công.
+
+## Bước tiếp theo — P3.5
+
+- Tách input desktop pointer thành camera modes Direct, Smooth và Inertia.
+- Thêm giới hạn trục X/Y và neutral return.
