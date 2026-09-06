@@ -122,6 +122,19 @@
 - [x] Mỗi thay đổi được rasterize lại thành PNG asset và lưu vào project.
 - [x] Production build thành công.
 
+## P3.9 — 2.5D displacement preview
+
+- [x] Renderer tải depth map cùng base artwork.
+- [x] Chia ảnh thành lưới và dịch chuyển theo grayscale depth.
+- [x] Camera position điều khiển hướng displacement.
+- [x] Thêm slider Perspective trong Depth Map composer.
+- [x] Layer stack bổ sung vẫn render phía trên displacement base.
+- [x] Production build và Portal export QA matrix thành công.
+
+## Bước tiếp theo — P3.10
+
+- Tối ưu displacement theo quality tier và thêm mask vùng không méo.
+
 ## Bước tiếp theo — P3.9
 
 - Dùng depth map trong displacement preview 2.5D.
