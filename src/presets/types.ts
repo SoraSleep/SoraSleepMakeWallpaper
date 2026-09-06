@@ -1,4 +1,4 @@
-export type PresetId = 'difference-lens' | 'portal-reveal' | 'before-after-sweep' | 'transformation-loop';
+export type PresetId = 'difference-lens' | 'portal-reveal' | 'layered-parallax' | 'before-after-sweep' | 'transformation-loop';
 export type PresetTarget = 'desktop-web' | 'mobile-video' | 'both';
 export type EditorPhase = 'assets' | 'canvas' | 'align' | 'difference' | 'motion' | 'effects' | 'validate' | 'export';
 

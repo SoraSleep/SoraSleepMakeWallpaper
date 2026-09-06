@@ -1,6 +1,6 @@
 export const CURRENT_PROJECT_VERSION = 2 as const;
 
-export type ProjectPreset = { id: 'difference-lens' | 'portal-reveal' | 'before-after-sweep' | 'transformation-loop'; version: 1 };
+export type ProjectPreset = { id: 'difference-lens' | 'portal-reveal' | 'layered-parallax' | 'before-after-sweep' | 'transformation-loop'; version: 1 };
 export type ProjectTarget = 'desktop-web' | 'mobile-video' | 'both';
 
 export type ProjectAsset = {
@@ -135,7 +135,7 @@ export function parseProject(value: unknown): MotionPairProject {
     || typeof value.createdAt !== 'string' || typeof value.updatedAt !== 'string') {
     throw new Error('Project identity is invalid.');
   }
-  if (!isRecord(value.preset) || !['difference-lens', 'portal-reveal', 'before-after-sweep', 'transformation-loop'].includes(String(value.preset.id)) || value.preset.version !== 1) {
+  if (!isRecord(value.preset) || !['difference-lens', 'portal-reveal', 'layered-parallax', 'before-after-sweep', 'transformation-loop'].includes(String(value.preset.id)) || value.preset.version !== 1) {
     throw new Error('Project preset is invalid or unsupported.');
   }
   if (!['desktop-web', 'mobile-video', 'both'].includes(String(value.target))) {

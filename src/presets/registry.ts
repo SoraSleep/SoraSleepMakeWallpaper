@@ -1,8 +1,8 @@
 import { differenceLensPreset } from './differenceLens';
-import { beforeAfterSweepPreset, portalRevealPreset, transformationLoopPreset } from './corePresets';
+import { beforeAfterSweepPreset, layeredParallaxPreset, portalRevealPreset, transformationLoopPreset } from './corePresets';
 import type { PresetId, WallpaperPreset } from './types';
 
-const presets: WallpaperPreset[] = [differenceLensPreset, portalRevealPreset, beforeAfterSweepPreset, transformationLoopPreset];
+const presets: WallpaperPreset[] = [differenceLensPreset, portalRevealPreset, layeredParallaxPreset, beforeAfterSweepPreset, transformationLoopPreset];
 
 export function listPresets() {
   return presets;

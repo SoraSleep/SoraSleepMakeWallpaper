@@ -36,4 +36,17 @@
 - Control points 3–8 điểm chưa có; manual controls hiện dùng scale/rotation/offset.
 - OpenCV worker khoảng 15.6 MB và chỉ tải khi bấm Auto Align.
 - Browser runtime interaction cần được kiểm tra thêm trên compatibility matrix; TypeScript/Vite build đã pass.
+# P3.0 — Preset domain foundation
+
+- [x] Đăng ký `03 — Layered Parallax 2D/3D` trong preset registry.
+- [x] Chốt input contract: base artwork, optional subject, foreground và depth map.
+- [x] Chốt default contract cho layers mode, camera, overscan và mobile input.
+- [x] Đổi `Before / After Sweep` thành preset 04 và `Transformation Loop` thành preset 05.
+- [x] Mở rộng project schema để nhận `layered-parallax` an toàn.
+- [x] Production build thành công.
+
+## Bước tiếp theo — P3.1
+
+- Thêm parallax project schema: layer list, depth, scale, offsets và mobile settings.
+- Migration cho project cũ và autosave/open project.
 
