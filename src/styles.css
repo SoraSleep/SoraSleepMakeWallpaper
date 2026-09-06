@@ -537,6 +537,10 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px s
 .region-row small { grid-column: 2; color: #6e7580; font-size: 8px; }
 .region-row button { padding: 5px 7px; color: #9aa1ab; font-size: 8px; border: 1px solid #323740; border-radius: 5px; background: #20242a; cursor: pointer; }
 .region-row button:hover { color: #fff; border-color: #4a515c; }
+.layer-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 4px; }
+.layer-actions button { min-width: 26px; }
+.layer-controls { display: grid; grid-column: 1 / -1; width: 100%; gap: 5px; padding-top: 7px; border-top: 1px solid #252930; }
+.layer-controls .range-control { margin-bottom: 2px; }
 
 .effect-row { display: grid; grid-template-columns: 26px 1fr auto 27px; align-items: center; gap: 7px; width: 100%; margin-top: 6px; padding: 7px; text-align: left; border: 0; border-radius: 6px; background: transparent; cursor: pointer; }
 .effect-row:hover { background: #1a1d22; }

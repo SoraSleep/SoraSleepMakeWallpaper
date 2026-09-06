@@ -367,6 +367,37 @@ function App() {
     return <ExportResultPage result={exportResult} onEditor={() => setRoute('editor')} onProjects={() => setRoute('projects')} />;
   }
 
+  if (false && selectedPresetId === 'layered-parallax') {
+    const addLayer = (name: string, asset: ProjectAsset, depth: number) => setParallaxSettings((current) => ({
+      ...current,
+      layers: [...current.layers, { id: globalThis.crypto?.randomUUID?.() ?? `layer-${Date.now()}`, name, asset, depth, scale: 1 + current.overscan / 100, offsetX: 0, offsetY: 0, visible: true }],
+    }));
+    const updateLayer = (id: string, changes: Partial<ParallaxSettings['layers'][number]>) => setParallaxSettings((current) => ({ ...current, layers: current.layers.map((layer) => layer.id === id ? { ...layer, ...changes } : layer) }));
+    const moveLayer = (index: number, direction: -1 | 1) => setParallaxSettings((current) => {
+      const destination = index + direction;
+      if (destination < 0 || destination >= current.layers.length) return current;
+      const layers = [...current.layers]; [layers[index], layers[destination]] = [layers[destination], layers[index]];
+      return { ...current, layers };
+    });
+    return <>
+      <div className="mode-grid"><button className="active"><span className="radio"><i /></span><span><b>Layered Parallax 2D/3D</b><small>Compose depth now; live camera rendering arrives in P3.3.</small></span></button></div>
+      <div className="control-group">
+        <div className="control-title"><Layers3 size={15} /><span>LAYER COMPOSER</span></div>
+        <div className="mask-actions"><button className="wide-secondary" onClick={() => addLayer('Background', assetA, 0.1)}>+ Base layer</button><button className="wide-secondary" onClick={() => addLayer('Variant / subject', assetB, 0.62)}>+ Subject layer</button></div>
+        {parallaxSettings.layers.length === 0 && <div className="validator-warning">Add the base artwork first, then add transparent subject or foreground layers.</div>}
+      </div>
+      <div className="region-list">
+        {parallaxSettings.layers.map((layer, index) => <div className="region-row" key={layer.id}>
+          <span><i /><b>{layer.name}</b><small>Depth {layer.depth.toFixed(2)} · {layer.asset?.name ?? 'No asset'}</small></span>
+          <div className="layer-actions"><button onClick={() => moveLayer(index, -1)} disabled={index === 0}>↑</button><button onClick={() => moveLayer(index, 1)} disabled={index === parallaxSettings.layers.length - 1}>↓</button><button onClick={() => updateLayer(layer.id, { visible: !layer.visible })}>{layer.visible ? 'Hide' : 'Show'}</button><button onClick={() => setParallaxSettings((current) => ({ ...current, layers: current.layers.filter((candidate) => candidate.id !== layer.id) }))}>Remove</button></div>
+          <div className="layer-controls"><RangeControl label="Depth" value={Math.round(layer.depth * 100)} min={0} max={100} unit="%" onChange={(value) => updateLayer(layer.id, { depth: value / 100 })} /><RangeControl label="Scale" value={Math.round(layer.scale * 100)} min={50} max={300} unit="%" onChange={(value) => updateLayer(layer.id, { scale: value / 100 })} /><RangeControl label="Offset X" value={Math.round(layer.offsetX)} min={-50} max={50} unit="%" onChange={(value) => updateLayer(layer.id, { offsetX: value })} /><RangeControl label="Offset Y" value={Math.round(layer.offsetY)} min={-50} max={50} unit="%" onChange={(value) => updateLayer(layer.id, { offsetY: value })} /></div>
+        </div>)}
+      </div>
+      <div className="control-group"><div className="control-title"><SlidersHorizontal size={15} /><span>CAMERA BASELINE</span></div><RangeControl label="Camera strength" value={parallaxSettings.cameraStrength} min={0} max={60} unit="%" onChange={(cameraStrength) => setParallaxSettings((current) => ({ ...current, cameraStrength }))} /><RangeControl label="Smoothing" value={parallaxSettings.smoothing} min={0} max={100} unit="%" onChange={(smoothing) => setParallaxSettings((current) => ({ ...current, smoothing }))} /><RangeControl label="Overscan" value={parallaxSettings.overscan} min={0} max={50} unit="%" onChange={(overscan) => setParallaxSettings((current) => ({ ...current, overscan }))} /></div>
+      <StepFooter note={parallaxSettings.layers.length ? `${parallaxSettings.layers.length} layer(s) saved to project` : 'Layer stack is empty'} action="Continue to Parallax Renderer" onClick={() => setActiveStep('Lens')} disabled={parallaxSettings.layers.length === 0} />
+    </>;
+  }
+
   return (
     <EditorShell>
       <header className="topbar">
@@ -477,6 +508,8 @@ function App() {
         <InspectorBody
           project={project}
           selectedPresetId={selectedPresetId}
+          parallaxSettings={parallaxSettings}
+          setParallaxSettings={setParallaxSettings}
           portalGlow={portalGlow}
           setPortalGlow={setPortalGlow}
           portalRipple={portalRipple}
@@ -544,6 +577,8 @@ function App() {
 function InspectorBody({
   project,
   selectedPresetId,
+  parallaxSettings,
+  setParallaxSettings,
   portalGlow,
   setPortalGlow,
   portalRipple,
@@ -605,6 +640,8 @@ function InspectorBody({
 }: {
   project: MotionPairProject;
   selectedPresetId: PresetId;
+  parallaxSettings: ParallaxSettings;
+  setParallaxSettings: React.Dispatch<React.SetStateAction<ParallaxSettings>>;
   portalGlow: number;
   setPortalGlow: (value: number) => void;
   portalRipple: number;
@@ -857,6 +894,10 @@ function InspectorBody({
     );
   }
 
+  if (selectedPresetId === 'layered-parallax') {
+    return <ParallaxComposer settings={parallaxSettings} setSettings={setParallaxSettings} assetA={assetA} assetB={assetB} onContinue={() => setActiveStep('Lens')} />;
+  }
+
   return (
     <>
       <div className="mode-grid">
@@ -914,6 +955,19 @@ function InspectorBody({
       <StepFooter note="WebGL renderer is ready for host integration" action="Review export requirements" onClick={() => setActiveStep('Export')} />
     </>
   );
+}
+
+function ParallaxComposer({ settings, setSettings, assetA, assetB, onContinue }: { settings: ParallaxSettings; setSettings: React.Dispatch<React.SetStateAction<ParallaxSettings>>; assetA: ProjectAsset; assetB: ProjectAsset; onContinue: () => void }) {
+  const addLayer = (name: string, asset: ProjectAsset, depth: number) => setSettings((current) => ({ ...current, layers: [...current.layers, { id: globalThis.crypto?.randomUUID?.() ?? `layer-${Date.now()}`, name, asset, depth, scale: 1 + current.overscan / 100, offsetX: 0, offsetY: 0, visible: true }] }));
+  const update = (id: string, changes: Partial<ParallaxSettings['layers'][number]>) => setSettings((current) => ({ ...current, layers: current.layers.map((layer) => layer.id === id ? { ...layer, ...changes } : layer) }));
+  const move = (index: number, direction: -1 | 1) => setSettings((current) => { const next = index + direction; if (next < 0 || next >= current.layers.length) return current; const layers = [...current.layers]; [layers[index], layers[next]] = [layers[next], layers[index]]; return { ...current, layers }; });
+  return <>
+    <div className="mode-grid"><button className="active"><span className="radio"><i /></span><span><b>Layered Parallax 2D/3D</b><small>Build the depth stack before enabling the live camera renderer.</small></span></button></div>
+    <div className="control-group"><div className="control-title"><Layers3 size={15} /><span>LAYER COMPOSER</span></div><div className="mask-actions"><button className="wide-secondary" onClick={() => addLayer('Background', assetA, 0.1)}>+ Base layer</button><button className="wide-secondary" onClick={() => addLayer('Subject', assetB, 0.62)}>+ Subject layer</button></div>{settings.layers.length === 0 && <div className="validator-warning">Start with Base layer, then add Subject and Foreground PNG layers.</div>}</div>
+    <div className="region-list">{settings.layers.map((layer, index) => <div className="region-row" key={layer.id}><span><i /><b>{layer.name}</b><small>Depth {layer.depth.toFixed(2)} · {layer.asset?.name ?? 'No asset'}</small></span><div className="layer-actions"><button disabled={index === 0} onClick={() => move(index, -1)}>↑</button><button disabled={index === settings.layers.length - 1} onClick={() => move(index, 1)}>↓</button><button onClick={() => update(layer.id, { visible: !layer.visible })}>{layer.visible ? 'Hide' : 'Show'}</button><button onClick={() => setSettings((current) => ({ ...current, layers: current.layers.filter((candidate) => candidate.id !== layer.id) }))}>Remove</button></div><div className="layer-controls"><RangeControl label="Depth" value={Math.round(layer.depth * 100)} min={0} max={100} unit="%" onChange={(value) => update(layer.id, { depth: value / 100 })} /><RangeControl label="Scale" value={Math.round(layer.scale * 100)} min={50} max={300} unit="%" onChange={(value) => update(layer.id, { scale: value / 100 })} /><RangeControl label="Offset X" value={Math.round(layer.offsetX)} min={-50} max={50} unit="%" onChange={(value) => update(layer.id, { offsetX: value })} /><RangeControl label="Offset Y" value={Math.round(layer.offsetY)} min={-50} max={50} unit="%" onChange={(value) => update(layer.id, { offsetY: value })} /></div></div>)}</div>
+    <div className="control-group"><div className="control-title"><SlidersHorizontal size={15} /><span>CAMERA BASELINE</span></div><RangeControl label="Camera strength" value={settings.cameraStrength} min={0} max={60} unit="%" onChange={(cameraStrength) => setSettings((current) => ({ ...current, cameraStrength }))} /><RangeControl label="Smoothing" value={settings.smoothing} min={0} max={100} unit="%" onChange={(smoothing) => setSettings((current) => ({ ...current, smoothing }))} /><RangeControl label="Overscan" value={settings.overscan} min={0} max={50} unit="%" onChange={(overscan) => setSettings((current) => ({ ...current, overscan }))} /></div>
+    <StepFooter note={settings.layers.length ? `${settings.layers.length} layer(s) saved to project` : 'Layer stack is empty'} action="Continue to Parallax Renderer" onClick={onContinue} disabled={settings.layers.length === 0} />
+  </>;
 }
 
 function CheckRow({ label, value }: { label: string; value: string }) {
