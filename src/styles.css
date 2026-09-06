@@ -542,6 +542,11 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px s
 .layer-controls { display: grid; grid-column: 1 / -1; width: 100%; gap: 5px; padding-top: 7px; border-top: 1px solid #252930; }
 .layer-controls .range-control { margin-bottom: 2px; }
 .depth-map-preview { width: 100%; max-height: 110px; object-fit: cover; filter: grayscale(1); border: 1px solid #30343c; border-radius: 6px; background: #111419; }
+.depth-editor { display: grid; gap: 7px; }
+.depth-editor-canvas { width: 100%; max-height: 150px; object-fit: contain; image-rendering: auto; border: 1px solid #3b414b; border-radius: 6px; background: #050607; cursor: crosshair; touch-action: none; }
+.depth-editor-tools { display: grid; grid-template-columns: 1fr auto auto; align-items: center; gap: 5px; color: #8f959f; font-size: 8px; }
+.depth-editor-tools label { display: flex; align-items: center; gap: 6px; }.depth-editor-tools input { width: 70px; }
+.depth-editor-tools button { padding: 5px 7px; color: #8e949e; border: 1px solid #30343c; border-radius: 5px; background: #1a1d22; cursor: pointer; }.depth-editor-tools button.active { color: #11150d; border-color: var(--accent); background: var(--accent-strong); }
 
 .effect-row { display: grid; grid-template-columns: 26px 1fr auto 27px; align-items: center; gap: 7px; width: 100%; margin-top: 6px; padding: 7px; text-align: left; border: 0; border-radius: 6px; background: transparent; cursor: pointer; }
 .effect-row:hover { background: #1a1d22; }

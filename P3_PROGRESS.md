@@ -113,6 +113,19 @@
 - [x] Giữ rõ giới hạn: brush/displacement editing sẽ nối với renderer 2.5D tiếp theo.
 - [x] Production build thành công.
 
+## P3.8 — Depth Map brush editor
+
+- [x] Thêm canvas editor cho depth map.
+- [x] Brush Raise tăng giá trị depth theo vùng vẽ.
+- [x] Brush Lower giảm giá trị depth theo vùng vẽ.
+- [x] Chỉnh kích thước brush trực tiếp trong inspector.
+- [x] Mỗi thay đổi được rasterize lại thành PNG asset và lưu vào project.
+- [x] Production build thành công.
+
+## Bước tiếp theo — P3.9
+
+- Dùng depth map trong displacement preview 2.5D.
+
 ## Bước tiếp theo — P3.8
 
 - Tạo brush chỉnh depth map và displacement preview.
