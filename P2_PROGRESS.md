@@ -29,6 +29,8 @@
 - [x] Xác nhận production build sau luồng persistence.
 - [x] Export `config.json` chứa preset ID và portal glow/ripple.
 - [x] Wallpaper Engine `project.json` khai báo Portal Reveal và user properties tương ứng.
+- [x] Gói ZIP Portal Reveal dùng runtime Canvas riêng thay vì runtime Difference Lens.
+- [x] Runtime export hỗ trợ feather, glow, ripple, pointer/touch, hold-to-expand và portrait auto motion.
 
 ## Giới hạn đã biết
 
