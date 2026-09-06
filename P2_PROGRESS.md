@@ -57,6 +57,15 @@
 - [x] Mobile bundle metadata chứa preset, portal settings và `seamlessLoop`.
 - [x] Production build và Portal runtime smoke test thành công.
 
+## P2.12 — Commercial package
+
+- [x] Thêm product ID, phiên bản, preset và trạng thái offline vào manifest export.
+- [x] Thêm hướng dẫn cài đặt Windows / Wallpaper Engine và Android video delivery.
+- [x] Thêm license template có điều khoản sử dụng, phân phối và quyền asset.
+- [x] Thêm changelog cùng third-party notice vào mỗi ZIP.
+- [x] Mở rộng package whitelist cho commercial documents, vẫn chặn URL ngoài và file nhạy cảm.
+- [x] Production build và Portal runtime smoke test thành công.
+
 ## Giới hạn đã biết
 
 - ICC profile hiện được browser decode về working color space; chưa trích tên profile gốc.

@@ -18,7 +18,7 @@ export function visualValidationMatrix(project: MotionPairProject) {
 
 export function validatePackageFiles(files: Record<string, Uint8Array>) {
   const errors: string[] = [];
-  const allowed = /^(index\.html|runtime\.js|project\.json|config\.json|preview\.jpg|thumbnail\.jpg|INSTALL\.txt|LICENSE\.txt|manifest\.json|sha256\.json|assets\/[a-z0-9._-]+)$/i;
+  const allowed = /^(index\.html|runtime\.js|project\.json|config\.json|preview\.jpg|thumbnail\.jpg|INSTALL\.txt|LICENSE\.txt|CHANGELOG\.txt|THIRD-PARTY-NOTICES\.txt|manifest\.json|sha256\.json|assets\/[a-z0-9._-]+)$/i;
   for (const [name, bytes] of Object.entries(files)) {
     if (!allowed.test(name)) errors.push(`File is outside the package whitelist: ${name}`);
     if (name.includes('..') || name.includes('\\') || name.startsWith('/')) errors.push(`Unsafe package path: ${name}`);
