@@ -77,7 +77,7 @@ export function createProject(seed: ProjectSeed): MotionPairProject {
     updatedAt: now,
     preset: { id: 'difference-lens', version: 1 },
     target: 'both',
-    presetSettings: { lens: seed.lens, portal: { glow: 72, ripple: 0 }, mobileMotion: { path: 'guided', duration: 8, loop: 'repeat' } },
+    presetSettings: { lens: seed.lens, portal: { glow: 72, ripple: 0, rippleEnabled: true, reducedMotion: false }, mobileMotion: { path: 'guided', duration: 8, loop: 'repeat' } },
     exportSettings: { mobileVideo: { quality: 'standard', width: 1080, height: 1920, fps: 30 } },
     assets: seed.assets,
     canvas: { aspectRatio: '16:9', fit: 'cover', safeArea: { top: 0, bottom: 0, sides: 0 } },

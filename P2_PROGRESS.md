@@ -40,6 +40,14 @@
 - [x] Xác nhận ảnh A, ảnh B, portal mask, glow và portrait auto motion hiển thị.
 - [x] Thêm lệnh lặp lại kiểm thử: `npm run test:portal-export`.
 
+## P2.10 — Motion accessibility và runtime lifecycle
+
+- [x] Thêm công tắc bật/tắt ripple trong editor và Wallpaper Engine properties.
+- [x] Thêm Reduced Motion, tắt ripple, auto motion và hold-to-expand.
+- [x] Lưu hai tùy chọn trong project/autosave/export metadata.
+- [x] Dừng render khi document bị ẩn và tiếp tục an toàn khi hiện lại.
+- [x] Production build và Portal export smoke test đều thành công.
+
 ## Giới hạn đã biết
 
 - ICC profile hiện được browser decode về working color space; chưa trích tên profile gốc.

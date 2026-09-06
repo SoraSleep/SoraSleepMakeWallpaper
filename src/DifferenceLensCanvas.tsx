@@ -11,6 +11,8 @@ type DifferenceLensCanvasProps = {
   revealIntensity: number;
   portalGlow?: number;
   portalRipple?: number;
+  portalRippleEnabled?: boolean;
+  reducedMotion?: boolean;
   followSpeed: number;
   showDifference: boolean;
   fit: 'cover' | 'contain';
@@ -283,6 +285,8 @@ export function DifferenceLensCanvas({
   revealIntensity,
   portalGlow = 72,
   portalRipple = 0,
+  portalRippleEnabled = true,
+  reducedMotion = false,
   followSpeed,
   showDifference,
   fit,
@@ -311,12 +315,12 @@ export function DifferenceLensCanvas({
   const targetRadius = useRef(radius);
   const lastInteraction = useRef(0);
   const targetOpacity = useRef(1);
-  const settings = useRef({ mode, radius, feather, magnification, revealIntensity, portalGlow, portalRipple, followSpeed, showDifference, fit, comparisonMode, fps, autoMotion });
+  const settings = useRef({ mode, radius, feather, magnification, revealIntensity, portalGlow, portalRipple, portalRippleEnabled, reducedMotion, followSpeed, showDifference, fit, comparisonMode, fps, autoMotion });
   const imageAspectRef = useRef(1);
   const strokePoints = useRef<Array<{ x: number; y: number }>>([]);
   const performanceCallback = useRef(onPerformance);
 
-  settings.current = { mode, radius, feather, magnification, revealIntensity, portalGlow, portalRipple, followSpeed, showDifference, fit, comparisonMode, fps, autoMotion };
+  settings.current = { mode, radius, feather, magnification, revealIntensity, portalGlow, portalRipple, portalRippleEnabled, reducedMotion, followSpeed, showDifference, fit, comparisonMode, fps, autoMotion };
   performanceCallback.current = onPerformance;
 
   useEffect(() => {
@@ -410,7 +414,7 @@ export function DifferenceLensCanvas({
         previousTime = now;
         const state = settings.current;
         currentRadius.current += (targetRadius.current - currentRadius.current) * (1 - Math.exp(-10 * delta));
-        if (state.autoMotion && (now - lastInteraction.current > 1200)) {
+        if (state.autoMotion && !state.reducedMotion && (now - lastInteraction.current > 1200)) {
           const phaseBase = (now / 1000 % state.autoMotion.duration) / state.autoMotion.duration;
           const phase = state.autoMotion.loop === 'pingpong' ? 0.5 - Math.abs(phaseBase - 0.5) : phaseBase;
           const angle = phase * Math.PI * 2;
@@ -447,7 +451,7 @@ export function DifferenceLensCanvas({
         gl.uniform1i(uniforms.comparisonMode, state.comparisonMode === 'overlay' ? 1 : state.comparisonMode === 'edges' ? 2 : 0);
         gl.uniform1i(uniforms.portal, state.mode === 'portal-reveal' ? 1 : 0);
         gl.uniform1f(uniforms.portalGlow, state.portalGlow / 100);
-        gl.uniform1f(uniforms.portalRipple, state.portalRipple / 100);
+        gl.uniform1f(uniforms.portalRipple, state.portalRippleEnabled && !state.reducedMotion ? state.portalRipple / 100 : 0);
         gl.uniform1f(uniforms.time, now / 1000);
         gl.drawArrays(gl.TRIANGLES, 0, 6);
         renderedFrames += 1;
@@ -519,7 +523,7 @@ export function DifferenceLensCanvas({
         if (!maskTool && settings.current.mode !== 'portal-reveal') return;
         event.currentTarget.setPointerCapture(event.pointerId);
         lastInteraction.current = performance.now();
-        if (settings.current.mode === 'portal-reveal') targetRadius.current = Math.min(42, radius * 1.45);
+        if (settings.current.mode === 'portal-reveal' && !settings.current.reducedMotion) targetRadius.current = Math.min(42, radius * 1.45);
         if (maskTool) strokePoints.current = [pointerToImageUv(event)];
       }}
       onPointerUp={(event) => {

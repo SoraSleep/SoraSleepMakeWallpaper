@@ -65,6 +65,8 @@ function App() {
   const [revealIntensity, setRevealIntensity] = useState(100);
   const [portalGlow, setPortalGlow] = useState(72);
   const [portalRipple, setPortalRipple] = useState(0);
+  const [portalRippleEnabled, setPortalRippleEnabled] = useState(true);
+  const [reducedMotion, setReducedMotion] = useState(false);
   const [followSpeed, setFollowSpeed] = useState(78);
   const [mobileMotion, setMobileMotion] = useState<MotionPairProject['mobileMotion']>({ path: 'guided', duration: 8, loop: 'repeat' });
   const [mobileRender, setMobileRender] = useState<MotionPairProject['mobileRender']>({ quality: 'standard', width: 1080, height: 1920, fps: 30 });
@@ -123,9 +125,9 @@ function App() {
       mobileRender,
       target: projectTarget,
       preset: projectPreset,
-      presetSettings: { ...snapshot.presetSettings, portal: { glow: portalGlow, ripple: portalRipple } },
+      presetSettings: { ...snapshot.presetSettings, portal: { glow: portalGlow, ripple: portalRipple, rippleEnabled: portalRippleEnabled, reducedMotion } },
     };
-  }, [alignmentSettings, assetA, assetB, canvasSettings, differenceSettings, feather, followSpeed, magnification, mobileMotion, mobileRender, portalGlow, portalRipple, projectMeta, radius, revealIntensity]);
+  }, [alignmentSettings, assetA, assetB, canvasSettings, differenceSettings, feather, followSpeed, magnification, mobileMotion, mobileRender, portalGlow, portalRipple, portalRippleEnabled, projectMeta, radius, reducedMotion, revealIntensity]);
 
   const applyProject = (nextProject: MotionPairProject) => {
     setProjectMeta({ id: nextProject.id, title: nextProject.title, createdAt: nextProject.createdAt });
@@ -143,9 +145,11 @@ function App() {
     setSelectedPresetId(nextProject.preset.id);
     const portal = nextProject.presetSettings?.portal;
     if (portal && typeof portal === 'object') {
-      const values = portal as { glow?: unknown; ripple?: unknown };
+      const values = portal as { glow?: unknown; ripple?: unknown; rippleEnabled?: unknown; reducedMotion?: unknown };
       if (typeof values.glow === 'number') setPortalGlow(values.glow);
       if (typeof values.ripple === 'number') setPortalRipple(values.ripple);
+      if (typeof values.rippleEnabled === 'boolean') setPortalRippleEnabled(values.rippleEnabled);
+      if (typeof values.reducedMotion === 'boolean') setReducedMotion(values.reducedMotion);
     }
     setCanvasSettings(nextProject.canvas);
     setAlignmentSettings(nextProject.alignment);
@@ -434,6 +438,8 @@ function App() {
               revealIntensity={revealIntensity}
               portalGlow={portalGlow}
               portalRipple={portalRipple}
+              portalRippleEnabled={portalRippleEnabled}
+              reducedMotion={reducedMotion}
               followSpeed={followSpeed}
               showDifference={showDifference || activeStep === 'Difference'}
               fit={canvasSettings.fit}
@@ -472,6 +478,10 @@ function App() {
           setPortalGlow={setPortalGlow}
           portalRipple={portalRipple}
           setPortalRipple={setPortalRipple}
+          portalRippleEnabled={portalRippleEnabled}
+          setPortalRippleEnabled={setPortalRippleEnabled}
+          reducedMotion={reducedMotion}
+          setReducedMotion={setReducedMotion}
           activeStep={activeStep}
           setActiveStep={setActiveStep}
           radius={radius}
@@ -535,6 +545,10 @@ function InspectorBody({
   setPortalGlow,
   portalRipple,
   setPortalRipple,
+  portalRippleEnabled,
+  setPortalRippleEnabled,
+  reducedMotion,
+  setReducedMotion,
   activeStep,
   setActiveStep,
   radius,
@@ -592,6 +606,10 @@ function InspectorBody({
   setPortalGlow: (value: number) => void;
   portalRipple: number;
   setPortalRipple: (value: number) => void;
+  portalRippleEnabled: boolean;
+  setPortalRippleEnabled: (value: boolean) => void;
+  reducedMotion: boolean;
+  setReducedMotion: (value: boolean) => void;
   activeStep: Step;
   setActiveStep: (step: Step) => void;
   radius: number;
@@ -853,6 +871,8 @@ function InspectorBody({
         {selectedPresetId === 'portal-reveal' && <>
           <RangeControl label="Portal glow" value={portalGlow} min={0} max={150} unit="%" onChange={setPortalGlow} />
           <RangeControl label="Ripple" value={portalRipple} min={0} max={100} unit="%" onChange={setPortalRipple} />
+          <label className="field-row"><span>Ripple effect</span><input type="checkbox" checked={portalRippleEnabled} onChange={(event) => setPortalRippleEnabled(event.target.checked)} /></label>
+          <label className="field-row"><span>Reduced motion</span><input type="checkbox" checked={reducedMotion} onChange={(event) => setReducedMotion(event.target.checked)} /></label>
         </>}
       </div>
       {canvasSettings.aspectRatio === '9:16' && <div className="control-group mobile-motion-controls">
