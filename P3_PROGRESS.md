@@ -159,6 +159,17 @@
 - [x] Production build thành công.
 - [ ] Mobile video renderer cần render cùng layer graph ở bước P3.13 để đảm bảo parity với runtime tương tác.
 
+## P3.13 — Mobile Parallax video parity
+
+- [x] WebCodecs MP4 export render layer graph theo camera timeline.
+- [x] MediaRecorder WebM fallback render cùng layer depth, overscan và camera strength.
+- [x] Giữ nguyên motion path orbit, figure8, breathe và guided.
+- [x] Production build thành công.
+
+## Bước tiếp theo — P3.14
+
+- Test xuất MP4/WebM thực tế trên Android/iOS và bổ sung kiểm tra codec, loop seam, orientation lock.
+
 ## Bước tiếp theo — P3.13
 
 - Đồng bộ Layered Parallax layer graph vào WebCodecs/MediaRecorder mobile export và test MP4/WebM trên Android/iOS.
