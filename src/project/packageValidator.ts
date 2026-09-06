@@ -10,7 +10,10 @@ export function visualValidationMatrix(project: MotionPairProject) {
     id: `${aspect}-${pointer}`,
     aspect,
     pointer,
-    passed: project.preset.id === 'portal-reveal'
+    passed: project.preset.id === 'layered-parallax'
+      ? project.parallax.layers.length > 0 && project.parallax.layers.every((layer) => layer.visible === false || (layer.scale >= 0.5 && layer.scale <= 3 && layer.depth >= 0 && layer.depth <= 1))
+        && project.parallax.layers.every((layer) => layer.scale >= 1 + project.parallax.overscan / 100 + project.parallax.cameraStrength * layer.depth / 100)
+      : project.preset.id === 'portal-reveal'
       ? Number.isFinite(project.lens.radius) && project.lens.radius >= 8 && project.lens.radius <= 32
         && Number.isFinite(Number((project.presetSettings.portal as { glow?: number } | undefined)?.glow ?? 72))
       : Number.isFinite(project.lens.magnification) && project.lens.magnification >= 100 && project.lens.magnification <= 200
@@ -59,6 +62,11 @@ export function validateWallpaperPackage(project: MotionPairProject, hasDifferen
   }
   if (project.alignment.transform.some((value) => !Number.isFinite(value))) errors.push('Alignment transform contains an invalid number.');
   if (project.assets.imageA.size + project.assets.imageB.size > 100 * 1024 * 1024) warnings.push('Source images exceed 100 MB combined; export may take longer.');
+  if (project.preset.id === 'layered-parallax') {
+    if (project.parallax.layers.length === 0) errors.push('Parallax requires at least one visible layer.');
+    if (project.parallax.layers.filter((layer) => layer.visible).length === 0) errors.push('Parallax requires at least one visible layer.');
+    if (project.parallax.mode === 'depth-map' && !project.parallax.depthMap) errors.push('Depth-map mode requires a depth map asset.');
+  }
   if (visualValidationMatrix(project).some((test) => !test.passed)) errors.push('Visual validation matrix contains a failed case.');
   return { errors, warnings };
 }
