@@ -38,6 +38,8 @@ export type ParallaxSettings = {
   smoothing: number;
   overscan: number;
   depthPerspective: number;
+  quality: 'economy' | 'standard' | 'premium';
+  distortionMask: ProjectAsset | null;
   cameraMode: 'direct' | 'smooth' | 'inertia';
   axis: 'both' | 'horizontal' | 'vertical';
   layers: ParallaxLayer[];
@@ -55,6 +57,8 @@ export const defaultParallaxSettings = (): ParallaxSettings => ({
   smoothing: 72,
   overscan: 12,
   depthPerspective: 20,
+  quality: 'standard',
+  distortionMask: null,
   cameraMode: 'smooth',
   axis: 'both',
   layers: [],
@@ -214,6 +218,7 @@ export function parseProject(value: unknown): MotionPairProject {
     || !isFiniteNumber(value.parallax.smoothing) || value.parallax.smoothing < 0 || value.parallax.smoothing > 100
     || !isFiniteNumber(value.parallax.overscan) || value.parallax.overscan < 0 || value.parallax.overscan > 50
     || !isFiniteNumber(value.parallax.depthPerspective) || value.parallax.depthPerspective < 0 || value.parallax.depthPerspective > 100
+    || !['economy', 'standard', 'premium'].includes(String(value.parallax.quality))
     || !['direct', 'smooth', 'inertia'].includes(String(value.parallax.cameraMode))
     || !['both', 'horizontal', 'vertical'].includes(String(value.parallax.axis))
     || !Array.isArray(value.parallax.layers)
@@ -229,6 +234,7 @@ export function parseProject(value: unknown): MotionPairProject {
     || !isFiniteNumber(layer.offsetX) || !isFiniteNumber(layer.offsetY)
     || typeof layer.visible !== 'boolean')) throw new Error('Parallax layer settings are invalid.');
   if (value.parallax.depthMap !== null && value.parallax.depthMap !== undefined && !isAsset(value.parallax.depthMap)) throw new Error('Parallax depth map is invalid.');
+  if (value.parallax.distortionMask !== null && value.parallax.distortionMask !== undefined && !isAsset(value.parallax.distortionMask)) throw new Error('Parallax distortion mask is invalid.');
   if (!isRecord(value.canvas) || !isRecord(value.alignment) || !isRecord(value.difference)) {
     throw new Error('Project processing settings are incomplete.');
   }

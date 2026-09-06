@@ -131,6 +131,16 @@
 - [x] Layer stack bổ sung vẫn render phía trên displacement base.
 - [x] Production build và Portal export QA matrix thành công.
 
+## P3.10 — Quality tiers và distortion protection
+
+- [x] Economy displacement dùng lưới 12 × 8.
+- [x] Standard displacement dùng lưới 24 × 14.
+- [x] Premium displacement dùng lưới 36 × 22.
+- [x] Thêm distortion mask để giảm displacement ở vùng được bảo vệ.
+- [x] Cho phép dùng depth map hiện tại làm protection mask nhanh.
+- [x] Lưu quality/mask trong project schema.
+- [x] Production build và Portal export QA matrix thành công.
+
 ## Bước tiếp theo — P3.10
 
 - Tối ưu displacement theo quality tier và thêm mask vùng không méo.
