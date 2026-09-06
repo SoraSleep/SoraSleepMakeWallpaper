@@ -32,6 +32,14 @@
 - [x] Gói ZIP Portal Reveal dùng runtime Canvas riêng thay vì runtime Difference Lens.
 - [x] Runtime export hỗ trợ feather, glow, ripple, pointer/touch, hold-to-expand và portrait auto motion.
 
+## P2.9 — Export runtime QA
+
+- [x] Kiểm tra cú pháp runtime được trích trực tiếp từ exporter.
+- [x] Render độc lập ngoài React editor ở 1280 × 720.
+- [x] Render độc lập ngoài React editor ở 432 × 768.
+- [x] Xác nhận ảnh A, ảnh B, portal mask, glow và portrait auto motion hiển thị.
+- [x] Thêm lệnh lặp lại kiểm thử: `npm run test:portal-export`.
+
 ## Giới hạn đã biết
 
 - ICC profile hiện được browser decode về working color space; chưa trích tên profile gốc.
