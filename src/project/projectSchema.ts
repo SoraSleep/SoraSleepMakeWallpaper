@@ -38,6 +38,8 @@ export type ParallaxSettings = {
   smoothing: number;
   overscan: number;
   depthPerspective: number;
+  cameraMode: 'direct' | 'smooth' | 'inertia';
+  axis: 'both' | 'horizontal' | 'vertical';
   layers: ParallaxLayer[];
   depthMap: ProjectAsset | null;
   mobile: {
@@ -53,6 +55,8 @@ export const defaultParallaxSettings = (): ParallaxSettings => ({
   smoothing: 72,
   overscan: 12,
   depthPerspective: 20,
+  cameraMode: 'smooth',
+  axis: 'both',
   layers: [],
   depthMap: null,
   mobile: { input: 'auto', strength: 16, reducedMotion: false },
@@ -210,6 +214,8 @@ export function parseProject(value: unknown): MotionPairProject {
     || !isFiniteNumber(value.parallax.smoothing) || value.parallax.smoothing < 0 || value.parallax.smoothing > 100
     || !isFiniteNumber(value.parallax.overscan) || value.parallax.overscan < 0 || value.parallax.overscan > 50
     || !isFiniteNumber(value.parallax.depthPerspective) || value.parallax.depthPerspective < 0 || value.parallax.depthPerspective > 100
+    || !['direct', 'smooth', 'inertia'].includes(String(value.parallax.cameraMode))
+    || !['both', 'horizontal', 'vertical'].includes(String(value.parallax.axis))
     || !Array.isArray(value.parallax.layers)
     || !isRecord(value.parallax.mobile)
     || !['touch', 'gyroscope', 'auto'].includes(String(value.parallax.mobile.input))

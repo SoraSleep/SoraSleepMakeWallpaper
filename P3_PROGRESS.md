@@ -86,6 +86,19 @@
 - [x] Thêm Auto Fix Overscan cho toàn bộ layer stack.
 - [x] Production build và Portal export QA matrix thành công.
 
+## P3.5 — Camera interaction modes
+
+- [x] Thêm camera mode Direct, Smooth và Inertia.
+- [x] Thêm giới hạn trục Both, Horizontal only và Vertical only.
+- [x] Camera tự quay về neutral khi pointer rời preview.
+- [x] Persist camera mode/axis qua project schema và autosave.
+- [x] Production build và Portal export QA matrix thành công.
+
+## Bước tiếp theo — P3.6
+
+- Thêm touch drag/inertia riêng cho mobile.
+- Thêm gyroscope permission và fallback auto drift.
+
 ## Bước tiếp theo — P3.5
 
 - Tách input desktop pointer thành camera modes Direct, Smooth và Inertia.
