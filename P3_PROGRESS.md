@@ -151,7 +151,17 @@
 
 ## Bước tiếp theo — P3.12
 
-- Xây runtime export riêng cho Layered Parallax (WebGL/Web và mobile video), sau đó kiểm thử trên thiết bị thật.
+## P3.12 — Layered Parallax offline runtime export
+
+- [x] Export ZIP chọn runtime riêng cho preset `layered-parallax`.
+- [x] Runtime chạy offline bằng canvas, hỗ trợ pointer camera, overscan, smoothing và layer depth.
+- [x] `config.json` đóng gói layer manifest với asset path nội bộ, không phụ thuộc URL mạng.
+- [x] Production build thành công.
+- [ ] Mobile video renderer cần render cùng layer graph ở bước P3.13 để đảm bảo parity với runtime tương tác.
+
+## Bước tiếp theo — P3.13
+
+- Đồng bộ Layered Parallax layer graph vào WebCodecs/MediaRecorder mobile export và test MP4/WebM trên Android/iOS.
 
 ## Bước tiếp theo — P3.10
 
