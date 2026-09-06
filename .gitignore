@@ -1,0 +1,16 @@
+node_modules/
+dist/
+*.tsbuildinfo
+vite.config.js
+vite.config.d.ts
+.DS_Store
+Thumbs.db
+.chrome-*/
+.edge-*/
+decoded_textures/
+extracted/
+unpacked/
+visual-baselines/
+ui-audit/
+p5-render-check.png
+p7-machine-test.png

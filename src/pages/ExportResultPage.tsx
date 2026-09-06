@@ -1,0 +1,5 @@
+import { ArrowLeft, CheckCircle2, FolderCheck, PackageCheck } from 'lucide-react';
+
+export function ExportResultPage({ result, onEditor, onProjects }: { result: { title: string; detail: string; target: string }; onEditor: () => void; onProjects: () => void }) {
+  return <main className="hub-page export-result"><header className="hub-topbar"><button className="back-button" onClick={onEditor}><ArrowLeft size={16} /> Editor</button><div className="hub-brand"><span><PackageCheck size={18} /></span><b>Export complete</b></div></header><section className="hub-content result-content"><div className="result-icon"><CheckCircle2 size={42} /></div><span>DELIVERY READY</span><h1>{result.title}</h1><p>{result.detail}</p><div className="result-target"><FolderCheck size={18} /> {result.target}</div><div className="result-actions"><button className="primary-button" onClick={onEditor}>Return to editor</button><button className="secondary-button" onClick={onProjects}>Back to projects</button></div></section></main>;
+}
