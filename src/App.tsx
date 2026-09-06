@@ -20,6 +20,7 @@ import {
   Zap,
 } from 'lucide-react';
 import { DifferenceLensCanvas } from './DifferenceLensCanvas';
+import { ParallaxCanvas } from './ParallaxCanvas';
 import { importImageJob } from './jobs/imageImportJob';
 import { runAlignmentJob, type AlignmentMetrics } from './jobs/alignmentJob';
 import { runDifferenceJob, type DifferenceResult } from './jobs/differenceJob';
@@ -357,7 +358,7 @@ function App() {
       onImport={selectFile}
       onRightsChange={(slot, rights) => slot === 'A' ? setAssetA((current) => ({ ...current, rights })) : setAssetB((current) => ({ ...current, rights }))}
       onBack={() => setRoute('presets')}
-      onCreate={() => { setProjectPreset({ id: selectedPresetId, version: 1 }); setRoute('editor'); }}
+      onCreate={() => { if (selectedPresetId === 'layered-parallax' && parallaxSettings.layers.length === 0) setParallaxSettings((current) => ({ ...current, layers: [{ id: globalThis.crypto?.randomUUID?.() ?? `layer-${Date.now()}`, name: 'Background', asset: assetA, depth: 0.1, scale: 1 + current.overscan / 100, offsetX: 0, offsetY: 0, visible: true }] })); setProjectPreset({ id: selectedPresetId, version: 1 }); setRoute('editor'); }}
     />;
   }
   if (route === 'export') {
@@ -462,7 +463,12 @@ function App() {
 
         <div className="canvas-stage">
           <div className="wallpaper-frame" style={{ aspectRatio: String(canvasAspect) }}>
-            <DifferenceLensCanvas
+            {selectedPresetId === 'layered-parallax' ? <ParallaxCanvas
+              settings={parallaxSettings}
+              fit={canvasSettings.fit}
+              fps={previewFps}
+              onPerformance={setRendererMetrics}
+            /> : <DifferenceLensCanvas
               mode={selectedPresetId === 'portal-reveal' ? 'portal-reveal' : 'difference-lens'}
               imageA={imageA}
               imageB={imageB}
@@ -485,13 +491,13 @@ function App() {
               fps={previewFps}
               onPerformance={setRendererMetrics}
               autoMotion={canvasSettings.aspectRatio === '9:16' ? mobileMotion : null}
-            />
+            />}
             {canvasSettings.aspectRatio === '9:16' && <div className="mobile-safe-area" style={{ '--safe-top': `${canvasSettings.safeArea.top}%`, '--safe-bottom': `${canvasSettings.safeArea.bottom}%`, '--safe-sides': `${canvasSettings.safeArea.sides}%` } as React.CSSProperties} aria-label="Mobile safe area preview"><i className="safe-top" /><i className="safe-bottom" /><i className="safe-left" /><i className="safe-right" /></div>}
             <div className="preview-badge"><span /> LIVE PREVIEW</div>
             <div className="frame-stat">WEBGL 2 <i /> {rendererMetrics.fps > 0 ? `${rendererMetrics.fps.toFixed(0)} FPS · ${rendererMetrics.frameMs.toFixed(1)} MS` : `${previewFps} FPS TARGET`}</div>
           </div>
           <div className="canvas-caption">
-            <span>Move the lens to magnify A and reveal only the changed regions from B.</span>
+            <span>{selectedPresetId === 'layered-parallax' ? 'Move the pointer to shift each layer by its assigned depth.' : 'Move the lens to magnify A and reveal only the changed regions from B.'}</span>
             <span>Fit: {canvasSettings.fit === 'cover' ? 'Cover' : 'Contain'} · sRGB · WebGL 2</span>
           </div>
         </div>

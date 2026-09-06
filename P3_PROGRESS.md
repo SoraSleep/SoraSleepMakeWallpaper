@@ -45,10 +45,10 @@
 - [x] Mở rộng project schema để nhận `layered-parallax` an toàn.
 - [x] Production build thành công.
 
-## Bước tiếp theo — P3.3
+## Bước tiếp theo — P3.4
 
-- Xây renderer 2D parallax cho layer stack.
-- Render theo layer order, depth, scale, offsets và visibility.
+- Tính overscan tự động theo depth/camera strength.
+- Cảnh báo layer có nguy cơ lộ viền và thêm Auto Fix Overscan.
 
 ## P3.1 — Parallax project schema
 
@@ -67,4 +67,13 @@
 - [x] Chỉnh depth, scale, offset X/Y cho mỗi layer.
 - [x] Chỉnh camera strength, smoothing và overscan của project.
 - [x] Mọi thay đổi được lưu qua parallax project schema/autosave.
+- [x] Production build và Portal export QA matrix thành công.
+
+## P3.3 — 2D Parallax renderer
+
+- [x] Thêm Canvas renderer riêng cho Layered Parallax.
+- [x] Render theo layer order, depth, scale, offsets và visibility.
+- [x] Camera follow mượt theo pointer/touch và camera strength.
+- [x] Tôn trọng Cover/Contain, FPS target và pause khi document ẩn.
+- [x] Tạo Base layer mặc định khi bắt đầu Parallax project mới.
 - [x] Production build và Portal export QA matrix thành công.
