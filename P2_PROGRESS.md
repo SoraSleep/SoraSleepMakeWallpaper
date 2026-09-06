@@ -48,6 +48,15 @@
 - [x] Dừng render khi document bị ẩn và tiếp tục an toàn khi hiện lại.
 - [x] Production build và Portal export smoke test đều thành công.
 
+## P2.11 — Mobile video export
+
+- [x] MP4 WebCodecs renderer hiển thị ảnh B trực tiếp trong Portal.
+- [x] WebM MediaRecorder fallback dùng cùng Portal, alignment, glow và ripple.
+- [x] Guided motion dùng quỹ đạo tuần hoàn kín để tránh giật tại điểm loop.
+- [x] Reduced Motion tạo video Portal tĩnh và vô hiệu ripple.
+- [x] Mobile bundle metadata chứa preset, portal settings và `seamlessLoop`.
+- [x] Production build và Portal runtime smoke test thành công.
+
 ## Giới hạn đã biết
 
 - ICC profile hiện được browser decode về working color space; chưa trích tên profile gốc.

@@ -15,7 +15,7 @@ export async function downloadMobileDistributionBundle(project: MotionPairProjec
   const files: Record<string, Uint8Array> = {
     [`${safe}.${extension}`]: videoBytes,
     'static-fallback.jpg': staticBytes,
-    'metadata.json': strToU8(JSON.stringify({ title: project.title, format: extension, width: project.mobileRender.width, height: project.mobileRender.height, fps: project.mobileRender.fps, duration: project.mobileMotion.duration, motion: project.mobileMotion.path }, null, 2)),
+    'metadata.json': strToU8(JSON.stringify({ title: project.title, preset: project.preset.id, format: extension, width: project.mobileRender.width, height: project.mobileRender.height, fps: project.mobileRender.fps, duration: project.mobileMotion.duration, motion: project.mobileMotion.path, seamlessLoop: true, portal: project.preset.id === 'portal-reveal' ? project.presetSettings.portal : undefined }, null, 2)),
     'INSTALL.txt': strToU8('Android: import the video in Wallpaper Engine Mobile or set it as a video wallpaper in your launcher. For MP4, use the paired-device transfer or .mpkg import flow. WebM fallback is intended for Android/desktop players.\n'),
     'LICENSE.txt': strToU8('Commercial license reminder: verify rights for all artwork before distribution.\n'),
   };

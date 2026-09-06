@@ -35,7 +35,7 @@ function createMaskCanvas(mask: ExportMask) {
  * Canvas draw transforms work in the opposite direction, so we rasterize a
  * fitted B image with the inverse matrix once and reuse it for every frame.
  */
-function createAlignedImage(image: HTMLImageElement, width: number, height: number, transform: MotionPairProject['alignment']['transform']) {
+export function createAlignedImage(image: HTMLImageElement, width: number, height: number, transform: MotionPairProject['alignment']['transform']) {
   const aligned = document.createElement('canvas');
   aligned.width = width;
   aligned.height = height;
@@ -83,17 +83,22 @@ export async function exportMobileVideo(project: MotionPairProject, mask: Export
   const encoder = new VideoEncoder({ output: (chunk: any, meta: any) => muxer.addVideoChunk(chunk, meta), error: (error: Error) => { failure = error; } });
   encoder.configure({ codec: 'avc1.42001f', width, height, bitrate: project.mobileRender.quality === 'premium' ? 14_000_000 : project.mobileRender.quality === 'economy' ? 4_000_000 : 8_000_000, framerate: fps });
   const duration = project.mobileMotion.duration;
+  const portal = project.preset.id === 'portal-reveal';
+  const portalSettings = (project.presetSettings.portal ?? {}) as { glow?: number; ripple?: number; rippleEnabled?: boolean; reducedMotion?: boolean };
   for (let index = 0; index < Math.ceil(duration * fps); index += 1) {
     if (signal?.aborted) { encoder.close(); throw new DOMException('Export cancelled', 'AbortError'); }
     const time = index / fps; const phase = (time % duration) / duration; const angle = phase * Math.PI * 2;
-    const x = project.mobileMotion.path === 'figure8' ? 0.5 + Math.sin(angle) * 0.22 : project.mobileMotion.path === 'breathe' ? 0.5 + Math.cos(angle) * 0.035 : project.mobileMotion.path === 'orbit' ? 0.5 + Math.cos(angle) * 0.2 : 0.33 + phase * 0.34;
-    const y = project.mobileMotion.path === 'figure8' ? 0.5 + Math.sin(angle * 2) * 0.16 : project.mobileMotion.path === 'breathe' ? 0.54 + Math.sin(angle) * 0.035 : project.mobileMotion.path === 'orbit' ? 0.5 + Math.sin(angle) * 0.24 : 0.62 - Math.sin(phase * Math.PI) * 0.2;
+    const still = portalSettings.reducedMotion === true;
+    const x = still ? 0.5 : project.mobileMotion.path === 'figure8' ? 0.5 + Math.sin(angle) * 0.22 : project.mobileMotion.path === 'breathe' ? 0.5 + Math.cos(angle) * 0.035 : project.mobileMotion.path === 'orbit' ? 0.5 + Math.cos(angle) * 0.2 : 0.5 - Math.cos(angle) * 0.17;
+    const y = still ? 0.54 : project.mobileMotion.path === 'figure8' ? 0.5 + Math.sin(angle * 2) * 0.16 : project.mobileMotion.path === 'breathe' ? 0.54 + Math.sin(angle) * 0.035 : project.mobileMotion.path === 'orbit' ? 0.5 + Math.sin(angle) * 0.24 : 0.52 + Math.sin(angle) * 0.1;
     const scale = Math.max(width / imageA.width, height / imageA.height); const drawWidth = imageA.width * scale; const drawHeight = imageA.height * scale;
     context.clearRect(0, 0, width, height); context.drawImage(imageA, (width - drawWidth) / 2, (height - drawHeight) / 2, drawWidth, drawHeight);
     const radius = project.lens.radius / 100 * Math.min(width, height); const cx = x * width; const cy = (1 - y) * height; const zoom = project.lens.magnification / 100;
-    context.save(); context.beginPath(); context.arc(cx, cy, radius, 0, Math.PI * 2); context.clip(); context.drawImage(imageA, cx - width / zoom / 2, cy - height / zoom / 2, width / zoom, height / zoom);
-    if (maskCanvas) { const layer = document.createElement('canvas'); layer.width = width; layer.height = height; const layerContext = layer.getContext('2d')!; layerContext.drawImage(alignedImageB, cx - width / zoom / 2, cy - height / zoom / 2, width / zoom, height / zoom); layerContext.globalCompositeOperation = 'destination-in'; layerContext.drawImage(maskCanvas, cx - radius, cy - radius, radius * 2, radius * 2); context.globalAlpha = project.lens.revealIntensity / 100; context.drawImage(layer, 0, 0); }
-    context.restore(); context.strokeStyle = '#b9e472'; context.lineWidth = Math.max(2, width / 900); context.beginPath(); context.arc(cx, cy, radius, 0, Math.PI * 2); context.stroke();
+    context.save(); context.beginPath(); context.arc(cx, cy, radius, 0, Math.PI * 2); context.clip();
+    if (portal) { context.globalAlpha = project.lens.revealIntensity / 100; context.drawImage(alignedImageB, 0, 0); }
+    else { context.drawImage(imageA, cx - width / zoom / 2, cy - height / zoom / 2, width / zoom, height / zoom); if (maskCanvas) { const layer = document.createElement('canvas'); layer.width = width; layer.height = height; const layerContext = layer.getContext('2d')!; layerContext.drawImage(alignedImageB, cx - width / zoom / 2, cy - height / zoom / 2, width / zoom, height / zoom); layerContext.globalCompositeOperation = 'destination-in'; layerContext.drawImage(maskCanvas, cx - radius, cy - radius, radius * 2, radius * 2); context.globalAlpha = project.lens.revealIntensity / 100; context.drawImage(layer, 0, 0); } }
+    context.restore(); const glow = portal ? Number(portalSettings.glow ?? 72) / 100 : 0; context.save(); context.strokeStyle = '#b9e472'; context.lineWidth = Math.max(2, width / 900) * (1 + glow); context.shadowColor = 'rgba(185,228,114,.9)'; context.shadowBlur = portal ? 12 + 24 * glow : 0; context.beginPath(); context.arc(cx, cy, radius, 0, Math.PI * 2); context.stroke();
+    if (portal && portalSettings.rippleEnabled !== false && !still) { const ripple = Number(portalSettings.ripple ?? 0) / 100; for (let ring = 0; ring < 2; ring += 1) { const ringPhase = (phase + ring * 0.5) % 1; context.globalAlpha = (1 - ringPhase) * ripple * 0.45; context.lineWidth = Math.max(1, width / 1080); context.beginPath(); context.arc(cx, cy, radius * (1 + ringPhase * 0.5), 0, Math.PI * 2); context.stroke(); } } context.restore();
     const frame = new VideoFrame(canvas, { timestamp: Math.round(index * 1_000_000 / fps) }); encoder.encode(frame, { keyFrame: index % (fps * 2) === 0 }); frame.close(); onProgress?.((index + 1) / Math.ceil(duration * fps));
   }
   await encoder.flush(); encoder.close(); if (failure) throw failure; muxer.finalize();
