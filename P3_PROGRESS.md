@@ -94,6 +94,20 @@
 - [x] Persist camera mode/axis qua project schema và autosave.
 - [x] Production build và Portal export QA matrix thành công.
 
+## P3.6 — Mobile input
+
+- [x] Touch drag dùng chung pointer input và tương thích với camera inertia.
+- [x] Thêm lựa chọn mobile input: auto, touch và gyroscope.
+- [x] Thêm nút xin quyền DeviceOrientation trên thiết bị hỗ trợ.
+- [x] Gyroscope điều khiển camera theo gamma/beta có giới hạn an toàn.
+- [x] Auto drift chạy ở portrait khi chọn fallback auto.
+- [x] Reduced Motion tắt auto drift và sensor motion.
+- [x] Production build và Portal export QA matrix thành công.
+
+## Bước tiếp theo — P3.7
+
+- Thêm depth-map mode, preview grayscale và brush chỉnh độ sâu.
+
 ## Bước tiếp theo — P3.6
 
 - Thêm touch drag/inertia riêng cho mobile.

@@ -35,6 +35,10 @@ export function ParallaxCanvas({ settings, fit, fps, onPerformance }: Props) {
         frame = requestAnimationFrame(draw); if (paused) { last = now; return; }
         const state = latest.current; if (lastDraw && now - lastDraw < 1000 / Math.max(1, state.fps)) return; lastDraw = now;
         const dt = Math.min((now - last) / 1000, 0.1); last = now;
+        if (canvas.clientHeight > canvas.clientWidth && state.settings.mobile.input === 'auto' && !state.settings.mobile.reducedMotion) {
+          const angle = now / 1000 / 8 * Math.PI * 2;
+          pointer.current = { x: 0.5 + Math.cos(angle) * state.settings.mobile.strength / 100, y: 0.5 + Math.sin(angle) * state.settings.mobile.strength / 120 };
+        }
         const response = state.settings.cameraMode === 'direct'
           ? 1
           : 1 - Math.exp(-(state.settings.cameraMode === 'inertia' ? 5 : 2 + state.settings.smoothing * 0.14) * dt);
@@ -64,8 +68,15 @@ export function ParallaxCanvas({ settings, fit, fps, onPerformance }: Props) {
       frame = requestAnimationFrame(draw);
     }).catch(() => { if (!disposed) setStatus('error'); });
     const visibility = () => { paused = document.hidden; };
+    const orientation = (event: DeviceOrientationEvent) => {
+      if (latest.current.settings.mobile.input !== 'gyroscope') return;
+      const gamma = Math.max(-30, Math.min(30, event.gamma ?? 0));
+      const beta = Math.max(-30, Math.min(30, event.beta ?? 0));
+      pointer.current = { x: 0.5 + gamma / 60, y: 0.5 + beta / 60 };
+    };
     document.addEventListener('visibilitychange', visibility);
-    return () => { disposed = true; cancelAnimationFrame(frame); document.removeEventListener('visibilitychange', visibility); };
+    window.addEventListener('deviceorientation', orientation);
+    return () => { disposed = true; cancelAnimationFrame(frame); document.removeEventListener('visibilitychange', visibility); window.removeEventListener('deviceorientation', orientation); };
   }, [settings.layers]);
 
   return <><canvas ref={canvasRef} className="difference-lens-canvas" aria-label="Interactive layered parallax preview" onPointerMove={(event) => { const rect = event.currentTarget.getBoundingClientRect(); pointer.current = { x: (event.clientX - rect.left) / rect.width, y: 1 - (event.clientY - rect.top) / rect.height }; }} onPointerLeave={() => { pointer.current = { x: 0.5, y: 0.5 }; }} />{status !== 'ready' && <div className="renderer-state" role="status">{status === 'loading' ? 'Loading parallax layers…' : 'Parallax layer could not be loaded.'}</div>}</>;
