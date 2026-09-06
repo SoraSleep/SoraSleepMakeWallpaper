@@ -76,6 +76,8 @@ export async function exportMobileVideo(project: MotionPairProject, mask: Export
   const canvas = document.createElement('canvas'); canvas.width = width; canvas.height = height;
   const context = canvas.getContext('2d'); if (!context) throw new Error('Could not create video canvas.');
   const alignedImageB = createAlignedImage(imageB, width, height, project.alignment.transform);
+  const parallax = project.preset.id === 'layered-parallax';
+  const parallaxLayers = parallax ? await Promise.all(project.parallax.layers.filter((layer) => layer.visible !== false).map(async (layer, index) => ({ layer, image: index === 0 ? imageA : alignedImageB }))) : [];
   const maskCanvas = createMaskCanvas(mask);
   const target = new ArrayBufferTarget();
   const muxer = new Muxer({ target, video: { codec: 'avc', width, height, frameRate: fps }, fastStart: 'in-memory' });
@@ -92,7 +94,13 @@ export async function exportMobileVideo(project: MotionPairProject, mask: Export
     const x = still ? 0.5 : project.mobileMotion.path === 'figure8' ? 0.5 + Math.sin(angle) * 0.22 : project.mobileMotion.path === 'breathe' ? 0.5 + Math.cos(angle) * 0.035 : project.mobileMotion.path === 'orbit' ? 0.5 + Math.cos(angle) * 0.2 : 0.5 - Math.cos(angle) * 0.17;
     const y = still ? 0.54 : project.mobileMotion.path === 'figure8' ? 0.5 + Math.sin(angle * 2) * 0.16 : project.mobileMotion.path === 'breathe' ? 0.54 + Math.sin(angle) * 0.035 : project.mobileMotion.path === 'orbit' ? 0.5 + Math.sin(angle) * 0.24 : 0.52 + Math.sin(angle) * 0.1;
     const scale = Math.max(width / imageA.width, height / imageA.height); const drawWidth = imageA.width * scale; const drawHeight = imageA.height * scale;
-    context.clearRect(0, 0, width, height); context.drawImage(imageA, (width - drawWidth) / 2, (height - drawHeight) / 2, drawWidth, drawHeight);
+    context.clearRect(0, 0, width, height);
+    if (parallax) {
+      const px = (x - 0.5) * width * project.parallax.cameraStrength / 100;
+      const py = (y - 0.5) * height * project.parallax.cameraStrength / 100;
+      for (const entry of parallaxLayers) { const layerScale = Math.max(1, entry.layer.scale); const fitScale = Math.max(width / entry.image.width, height / entry.image.height) * (1 + project.parallax.overscan / 100); const dw = entry.image.width * fitScale * layerScale; const dh = entry.image.height * fitScale * layerScale; context.drawImage(entry.image, (width - dw) / 2 - px * entry.layer.depth, (height - dh) / 2 + py * entry.layer.depth, dw, dh); }
+    } else context.drawImage(imageA, (width - drawWidth) / 2, (height - drawHeight) / 2, drawWidth, drawHeight);
+    if (parallax) { const frame = new VideoFrame(canvas, { timestamp: Math.round(index * 1_000_000 / fps) }); encoder.encode(frame, { keyFrame: index % (fps * 2) === 0 }); frame.close(); onProgress?.((index + 1) / Math.ceil(duration * fps)); continue; }
     const radius = project.lens.radius / 100 * Math.min(width, height); const cx = x * width; const cy = (1 - y) * height; const zoom = project.lens.magnification / 100;
     context.save(); context.beginPath(); context.arc(cx, cy, radius, 0, Math.PI * 2); context.clip();
     if (portal) { context.globalAlpha = project.lens.revealIntensity / 100; context.drawImage(alignedImageB, 0, 0); }
