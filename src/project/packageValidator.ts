@@ -10,8 +10,11 @@ export function visualValidationMatrix(project: MotionPairProject) {
     id: `${aspect}-${pointer}`,
     aspect,
     pointer,
-    passed: Number.isFinite(project.lens.magnification) && project.lens.magnification >= 100 && project.lens.magnification <= 200
-      && project.lens.radius >= 8 && project.lens.radius <= 32,
+    passed: project.preset.id === 'portal-reveal'
+      ? Number.isFinite(project.lens.radius) && project.lens.radius >= 8 && project.lens.radius <= 32
+        && Number.isFinite(Number((project.presetSettings.portal as { glow?: number } | undefined)?.glow ?? 72))
+      : Number.isFinite(project.lens.magnification) && project.lens.magnification >= 100 && project.lens.magnification <= 200
+        && project.lens.radius >= 8 && project.lens.radius <= 32,
   })));
   return cases;
 }

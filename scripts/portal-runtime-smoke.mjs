@@ -31,7 +31,12 @@ const config = {
 writeFileSync(path.join(output, 'runtime.js'), match[1]);
 writeFileSync(path.join(output, 'index.html'), `<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>html,body,canvas{margin:0;width:100%;height:100%;overflow:hidden;background:#0b0d10}canvas{display:block;touch-action:none}</style><canvas></canvas><script>window.WALLPAPER_CONFIG=${JSON.stringify(config)}</script><script src="runtime.js"></script>`);
 
-for (const [name, width, height] of [['16x9', 1280, 720], ['9x16', 432, 768]]) {
+for (const [name, width, height] of [
+  ['16x9', 1280, 720],
+  ['21x9', 1680, 720],
+  ['32x9', 2560, 720],
+  ['9x16', 432, 768],
+]) {
   const screenshot = path.join(output, `${name}.png`);
   const profile = path.join(output, `.profile-${name}`);
   mkdirSync(profile, { recursive: true });
@@ -40,7 +45,7 @@ for (const [name, width, height] of [['16x9', 1280, 720], ['9x16', 432, 768]]) {
     '--enable-unsafe-swiftshader', `--window-size=${width},${height}`, '--virtual-time-budget=3500',
     `--screenshot=${screenshot}`, `file:///${path.join(output, 'index.html').replaceAll('\\', '/')}`,
   ], { stdio: 'ignore' });
-  const deadline = Date.now() + 3000;
+  const deadline = Date.now() + 8000;
   while ((!existsSync(screenshot) || statSync(screenshot).size < 10_000) && Date.now() < deadline) {
     Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 100);
   }

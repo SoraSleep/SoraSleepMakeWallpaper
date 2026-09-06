@@ -66,6 +66,14 @@
 - [x] Mở rộng package whitelist cho commercial documents, vẫn chặn URL ngoài và file nhạy cảm.
 - [x] Production build và Portal runtime smoke test thành công.
 
+## P2.13 — Final Portal QA
+
+- [x] Render độc lập ở 16:9, 21:9, 32:9 và 9:16.
+- [x] Kiểm tra trực quan ultrawide: không lộ viền, portal giữ tỉ lệ và crop ổn định.
+- [x] Validator dùng rule riêng của Portal, không ép điều kiện magnification của Difference Lens.
+- [x] QA export tiếp tục kiểm tra runtime syntax, asset load và ảnh output có dữ liệu.
+- [x] Production build và QA matrix thành công.
+
 ## Giới hạn đã biết
 
 - ICC profile hiện được browser decode về working color space; chưa trích tên profile gốc.
