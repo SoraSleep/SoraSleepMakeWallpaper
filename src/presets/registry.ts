@@ -8,6 +8,10 @@ export function listPresets() {
   return presets;
 }
 
+export function listDefaultPresets() {
+  return [portalRevealPreset, differenceLensPreset];
+}
+
 export function getPreset(id: PresetId) {
   const preset = presets.find((candidate) => candidate.id === id);
   if (!preset) throw new Error(`Unsupported preset: ${id}`);

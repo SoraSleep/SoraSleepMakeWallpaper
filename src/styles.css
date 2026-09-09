@@ -601,3 +601,13 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px s
   .range-control { margin-bottom: 10px; }
   .mode-grid { padding-top: 10px; padding-bottom: 11px; }
 }
+
+.home-presets { margin:30px 0; }
+.home-preset-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(190px,1fr)); gap:14px; }
+.home-preset { display:flex; flex-direction:column; align-items:flex-start; text-align:left; padding:22px; min-height:230px; background:#171c23; color:#edf0f4; border:1px solid #35404d; border-radius:16px; cursor:pointer; }
+.home-preset:hover:not(:disabled), .home-preset:focus-visible { outline:2px solid #b9e472; outline-offset:3px; }
+.home-preset>span { color:#b9e472; font-size:28px; margin-bottom:22px; }
+.home-preset strong { font-size:19px; }
+.home-preset p { color:#aeb7c4; font-size:13px; line-height:1.6; flex:1; }
+.home-preset small { color:#b9e472; }
+.home-preset:disabled { opacity:.55; cursor:default; }

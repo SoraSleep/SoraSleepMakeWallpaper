@@ -105,7 +105,8 @@ void main() {
   float lens = 1.0 - smoothstep(uRadius - uFeather, uRadius, distanceToPointer);
   lens *= uLensOpacity;
 
-  vec2 zoomedScreenUv = uPointer + screenDelta / uZoom;
+  float zoom = uPortal ? uZoom : mix(1.0, min(uZoom, 1.18), uLensOpacity);
+  vec2 zoomedScreenUv = uPointer + screenDelta / zoom;
   vec2 baseUv = imageUv(vUv);
   vec2 zoomUv = imageUv(zoomedScreenUv);
   vec2 alignedBaseBUv = (uAlignment * vec3(baseUv, 1.0)).xy;
@@ -128,6 +129,9 @@ void main() {
   // Lens keeps the analyzed-difference compositing behavior.
   vec4 insideLens = uPortal ? mix(lensA, lensB, uReveal) : mix(lensA, lensB, difference);
   vec4 composite = mix(base, insideLens, lens);
+  if (!uPortal && uComparisonMode == 0 && !uShowDifference) {
+    composite = mix(lensA, lensB, difference * smoothstep(0.3, 1.0, uLensOpacity));
+  }
 
   if (uComparisonMode == 1) {
     vec4 alignedBaseB = texture(uImageB, alignedBaseBUv);
@@ -149,7 +153,7 @@ void main() {
     float rippleWave = sin(distanceToPointer * 76.0 - uTime * 2.4) * 0.5 + 0.5;
     float rippleRing = smoothstep(0.0, 0.08, 0.08 - abs(fract(distanceToPointer * 8.0 - uTime * 0.22) - 0.5));
     float ripple = mix(rippleWave, rippleRing, 0.55);
-    float ring = uPortal ? border * uPortalGlow : border * 0.72;
+    float ring = uPortal ? border * uPortalGlow : 0.0;
     composite.rgb = mix(composite.rgb, vec3(0.78, 0.94, 0.52), ring * uLensOpacity);
     if (uPortal) composite.rgb += vec3(0.18, 0.24, 0.12) * ripple * uPortalRipple * border * uLensOpacity;
   }
@@ -209,6 +213,21 @@ function createTexture(gl: WebGL2RenderingContext, source: TexImageSource, unit:
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
   gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, source);
   return texture;
+}
+
+function limitPreviewTexture(image: HTMLImageElement, maxDimension: number): TexImageSource {
+  const largest = Math.max(image.naturalWidth, image.naturalHeight);
+  if (largest <= maxDimension) return image;
+  const scale = maxDimension / largest;
+  const canvas = document.createElement('canvas');
+  canvas.width = Math.max(1, Math.round(image.naturalWidth * scale));
+  canvas.height = Math.max(1, Math.round(image.naturalHeight * scale));
+  const context = canvas.getContext('2d', { alpha: false });
+  if (!context) return image;
+  context.imageSmoothingEnabled = true;
+  context.imageSmoothingQuality = 'high';
+  context.drawImage(image, 0, 0, canvas.width, canvas.height);
+  return canvas;
 }
 
 function createDifferenceMap(
@@ -314,7 +333,7 @@ export function DifferenceLensCanvas({
   const currentRadius = useRef(radius);
   const targetRadius = useRef(radius);
   const lastInteraction = useRef(0);
-  const targetOpacity = useRef(1);
+  const targetOpacity = useRef(0);
   const settings = useRef({ mode, radius, feather, magnification, revealIntensity, portalGlow, portalRipple, portalRippleEnabled, reducedMotion, followSpeed, showDifference, fit, comparisonMode, fps, autoMotion });
   const imageAspectRef = useRef(1);
   const strokePoints = useRef<Array<{ x: number; y: number }>>([]);
@@ -335,7 +354,12 @@ export function DifferenceLensCanvas({
     let previousDrawTime = 0;
     let statsStartedAt = performance.now();
     let renderedFrames = 0;
-    let paused = document.hidden;
+    let renderScale = 1;
+    let slowWindows = 0;
+    let fastWindows = 0;
+    let documentHidden = document.hidden;
+    let inViewport = true;
+    let drawFrame: ((now: number) => void) | null = null;
     const textures: WebGLTexture[] = [];
     let program: WebGLProgram;
     try {
@@ -370,12 +394,28 @@ export function DifferenceLensCanvas({
       portalRipple: gl.getUniformLocation(program, 'uPortalRipple'),
       time: gl.getUniformLocation(program, 'uTime'),
     };
-    const handleVisibility = () => { paused = document.hidden; };
+    const syncAnimation = () => {
+      const active = !disposed && !documentHidden && inViewport && Boolean(drawFrame);
+      canvas.dataset.animationActive = active ? 'true' : 'false';
+      if (active && animationFrame === 0 && drawFrame) {
+        previousTime = performance.now();
+        animationFrame = requestAnimationFrame(drawFrame);
+      } else if (!active && animationFrame !== 0) {
+        cancelAnimationFrame(animationFrame);
+        animationFrame = 0;
+      }
+    };
+    const handleVisibility = () => { documentHidden = document.hidden; syncAnimation(); };
     const handleContextLost = (event: Event) => { event.preventDefault(); setRenderStatus('lost'); };
     const handleContextRestored = () => { setRenderStatus('ready'); setContextGeneration((value) => value + 1); };
     document.addEventListener('visibilitychange', handleVisibility);
     canvas.addEventListener('webglcontextlost', handleContextLost);
     canvas.addEventListener('webglcontextrestored', handleContextRestored);
+    const viewportObserver = new IntersectionObserver(([entry]) => {
+      inViewport = entry?.isIntersecting ?? false;
+      syncAnimation();
+    }, { threshold: 0.01 });
+    viewportObserver.observe(canvas);
 
     const wallpaperWindow = window as Window & {
       wallpaperPropertyListener?: {
@@ -396,20 +436,30 @@ export function DifferenceLensCanvas({
       if (disposed) return;
       imageAspectRef.current = loadedA.naturalWidth / loadedA.naturalHeight;
       const difference = differenceMask ? maskToCanvas(differenceMask) : createDifferenceMap(loadedA, loadedB, alignment);
-      textures.push(createTexture(gl, loadedA, 0), createTexture(gl, loadedB, 1), createTexture(gl, difference, 2));
+      const previewTextureLimit = Math.min(Number(gl.getParameter(gl.MAX_TEXTURE_SIZE)), settings.current.fps <= 15 ? 2048 : 4096);
+      const previewA = limitPreviewTexture(loadedA, previewTextureLimit);
+      const previewB = limitPreviewTexture(loadedB, previewTextureLimit);
+      canvas.dataset.textureLimit = String(previewTextureLimit);
+      canvas.dataset.renderScale = String(renderScale);
+      textures.push(createTexture(gl, previewA, 0), createTexture(gl, previewB, 1), createTexture(gl, difference, 2));
       gl.uniform1i(gl.getUniformLocation(program, 'uImageA'), 0);
       gl.uniform1i(gl.getUniformLocation(program, 'uImageB'), 1);
       gl.uniform1i(gl.getUniformLocation(program, 'uDifference'), 2);
       const [a, b, c, d, tx, ty] = alignment;
       gl.uniformMatrix3fv(uniforms.alignment, false, new Float32Array([a, b, 0, c, d, 0, tx, ty, 1]));
 
-      const draw = (now: number) => {
-        if (disposed) return;
-        animationFrame = requestAnimationFrame(draw);
-        if (paused || gl.isContextLost()) { previousTime = now; return; }
+      drawFrame = (now: number) => {
+        animationFrame = 0;
+        if (disposed || documentHidden || !inViewport) return;
+        animationFrame = requestAnimationFrame(drawFrame!);
+        if (gl.isContextLost()) { previousTime = now; return; }
         const fpsLimit = Math.max(1, settings.current.fps);
-        if (previousDrawTime > 0 && now - previousDrawTime < 1000 / fpsLimit) return;
-        previousDrawTime = now;
+        const frameInterval = 1000 / fpsLimit;
+        const elapsedSinceDraw = now - previousDrawTime;
+        // rAF timestamps fluctuate around the requested interval. A small
+        // tolerance avoids turning a 30 FPS target into every third 60 Hz tick.
+        if (previousDrawTime > 0 && elapsedSinceDraw < frameInterval * 0.8) return;
+        previousDrawTime = previousDrawTime > 0 ? now - elapsedSinceDraw % frameInterval : now;
         const delta = Math.min((now - previousTime) / 1000, 0.1);
         previousTime = now;
         const state = settings.current;
@@ -422,15 +472,15 @@ export function DifferenceLensCanvas({
           else if (state.autoMotion.path === 'figure8') targetPointer.current = { x: 0.5 + Math.sin(angle) * 0.22, y: 0.5 + Math.sin(angle * 2) * 0.16 };
           else if (state.autoMotion.path === 'breathe') targetPointer.current = { x: 0.5 + Math.cos(angle) * 0.035, y: 0.54 + Math.sin(angle) * 0.035 };
           else targetPointer.current = { x: 0.33 + phase * 0.34, y: 0.62 - Math.sin(phase * Math.PI) * 0.2 };
-          targetOpacity.current = 1;
+          targetOpacity.current = state.mode === 'portal-reveal' ? 1 : (1 - Math.cos(phaseBase * Math.PI * 2)) / 2;
         }
         const response = 1 - Math.exp(-(2 + state.followSpeed * 0.14) * delta);
         currentPointer.current.x += (targetPointer.current.x - currentPointer.current.x) * response;
         currentPointer.current.y += (targetPointer.current.y - currentPointer.current.y) * response;
-        const currentOpacity = Number(canvas.dataset.opacity ?? '1');
+        const currentOpacity = Number(canvas.dataset.opacity ?? '0');
         const nextOpacity = currentOpacity + (targetOpacity.current - currentOpacity) * (1 - Math.exp(-8 * delta));
         canvas.dataset.opacity = String(nextOpacity);
-        const pixelRatio = Math.min(window.devicePixelRatio || 1, 2);
+        const pixelRatio = Math.min(window.devicePixelRatio || 1, 2) * renderScale;
         const width = Math.max(1, Math.round(canvas.clientWidth * pixelRatio));
         const height = Math.max(1, Math.round(canvas.clientHeight * pixelRatio));
         if (canvas.width !== width || canvas.height !== height) {
@@ -459,11 +509,20 @@ export function DifferenceLensCanvas({
         if (statsWindow >= 1000) {
           const measuredFps = renderedFrames * 1000 / statsWindow;
           performanceCallback.current?.({ fps: measuredFps, frameMs: 1000 / Math.max(measuredFps, 1) });
+          const targetFps = Math.max(1, settings.current.fps);
+          slowWindows = measuredFps < targetFps * 0.8 ? slowWindows + 1 : 0;
+          fastWindows = measuredFps > targetFps * 0.94 ? fastWindows + 1 : 0;
+          if (slowWindows >= 2 && renderScale > 0.5) {
+            renderScale = Math.max(0.5, renderScale - 0.25); slowWindows = 0; fastWindows = 0;
+          } else if (fastWindows >= 4 && renderScale < 1) {
+            renderScale = Math.min(1, renderScale + 0.25); slowWindows = 0; fastWindows = 0;
+          }
+          canvas.dataset.renderScale = String(renderScale);
           renderedFrames = 0;
           statsStartedAt = now;
         }
       };
-      animationFrame = requestAnimationFrame(draw);
+      syncAnimation();
     }).catch((error) => {
       canvas.dataset.error = error instanceof Error ? error.message : 'Unable to initialize preview.';
       setRenderStatus('error');
@@ -472,6 +531,9 @@ export function DifferenceLensCanvas({
     return () => {
       disposed = true;
       cancelAnimationFrame(animationFrame);
+      animationFrame = 0;
+      canvas.dataset.animationActive = 'false';
+      viewportObserver.disconnect();
       document.removeEventListener('visibilitychange', handleVisibility);
       canvas.removeEventListener('webglcontextlost', handleContextLost);
       canvas.removeEventListener('webglcontextrestored', handleContextRestored);
@@ -512,7 +574,7 @@ export function DifferenceLensCanvas({
           x: (event.clientX - rect.left) / rect.width,
           y: 1 - (event.clientY - rect.top) / rect.height,
         };
-        targetOpacity.current = 1;
+        if (settings.current.mode === 'portal-reveal') targetOpacity.current = 1;
         if (maskTool && event.buttons === 1) {
           const point = pointerToImageUv(event);
           const previous = strokePoints.current.at(-1);
@@ -520,13 +582,17 @@ export function DifferenceLensCanvas({
         }
       }}
       onPointerDown={(event) => {
-        if (!maskTool && settings.current.mode !== 'portal-reveal') return;
+        if (!maskTool && settings.current.mode !== 'portal-reveal') targetOpacity.current = 1;
         event.currentTarget.setPointerCapture(event.pointerId);
         lastInteraction.current = performance.now();
         if (settings.current.mode === 'portal-reveal' && !settings.current.reducedMotion) targetRadius.current = Math.min(42, radius * 1.45);
         if (maskTool) strokePoints.current = [pointerToImageUv(event)];
       }}
       onPointerUp={(event) => {
+        if (settings.current.mode !== 'portal-reveal') {
+          targetOpacity.current = 0;
+          if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
+        }
         if (!maskTool) {
           if (settings.current.mode === 'portal-reveal') {
             targetRadius.current = radius;
@@ -545,7 +611,8 @@ export function DifferenceLensCanvas({
         });
         strokePoints.current = [];
       }}
-      onPointerEnter={() => { targetOpacity.current = 1; }}
+      onPointerCancel={() => { targetOpacity.current = 0; targetRadius.current = radius; strokePoints.current = []; }}
+      onPointerEnter={() => { if (settings.current.mode === 'portal-reveal') targetOpacity.current = 1; }}
       onPointerLeave={(event) => {
         // Touch pointers should keep the portal visible after a drag ends;
         // mouse pointers fade it when leaving the preview surface.

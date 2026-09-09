@@ -1,5 +1,8 @@
 import type { MotionPairProject } from '../project/projectSchema';
 import { createAlignedImage } from './mobileVideoExport';
+import { prepareHiddenReveal } from './hiddenRevealFrame';
+import { prepareParallaxVideo } from './parallaxVideoFrame';
+import { drawTransitionFrame } from './transitionFrame';
 
 type ExportMask = { width: number; height: number; data: Uint8ClampedArray } | null;
 
@@ -22,19 +25,25 @@ export async function exportMobileVideoFallback(project: MotionPairProject, mask
   const maskCanvas = document.createElement('canvas');
   if (mask) { maskCanvas.width = mask.width; maskCanvas.height = mask.height; const maskContext = maskCanvas.getContext('2d')!; const pixels = maskContext.createImageData(mask.width, mask.height); mask.data.forEach((alpha, index) => { pixels.data[index * 4] = 255; pixels.data[index * 4 + 1] = 255; pixels.data[index * 4 + 2] = 255; pixels.data[index * 4 + 3] = alpha; }); maskContext.putImageData(pixels, 0, 0); }
   const total = Math.ceil(project.mobileMotion.duration * fps); let index = 0;
-  const alignedB = createAlignedImage(b, width, height, project.alignment.transform);
+  const alignedB = createAlignedImage(b, width, height, project.alignment.transform, project.canvas.fit);
+  const fittedA = createAlignedImage(a, width, height, [1, 0, 0, 1, 0, 0], project.canvas.fit);
+  const hiddenReveal = prepareHiddenReveal(project, fittedA, alignedB, mask);
   const parallax = project.preset.id === 'layered-parallax';
-  const parallaxLayers = parallax ? project.parallax.layers.filter((layer) => layer.visible !== false).map((layer, layerIndex) => ({ layer, image: layerIndex === 0 ? a : alignedB })) : [];
+  const drawParallax = await prepareParallaxVideo(project);
   const portal = project.preset.id === 'portal-reveal';
   const portalSettings = (project.presetSettings.portal ?? {}) as { glow?: number; ripple?: number; rippleEnabled?: boolean; reducedMotion?: boolean };
   const draw = () => {
+    if (project.preset.id === 'before-after-sweep' || project.preset.id === 'transformation-loop') {
+      drawTransitionFrame(context, project, fittedA, alignedB, width, height, index / fps); return;
+    }
     const phase = (index / fps % project.mobileMotion.duration) / project.mobileMotion.duration; const angle = phase * Math.PI * 2;
     const still = portalSettings.reducedMotion === true;
     const x = still ? 0.5 : project.mobileMotion.path === 'orbit' ? 0.5 + Math.cos(angle) * 0.2 : project.mobileMotion.path === 'figure8' ? 0.5 + Math.sin(angle) * 0.22 : project.mobileMotion.path === 'breathe' ? 0.5 + Math.cos(angle) * 0.035 : 0.5 - Math.cos(angle) * 0.17;
     const y = still ? 0.54 : project.mobileMotion.path === 'orbit' ? 0.5 + Math.sin(angle) * 0.24 : project.mobileMotion.path === 'figure8' ? 0.5 + Math.sin(angle * 2) * 0.16 : project.mobileMotion.path === 'breathe' ? 0.54 + Math.sin(angle) * 0.035 : 0.52 + Math.sin(angle) * 0.1;
     const scale = Math.max(width / a.width, height / a.height); const dw = a.width * scale; const dh = a.height * scale;
+    if (hiddenReveal) { hiddenReveal(context, phase, x, y); return; }
     context.clearRect(0, 0, width, height);
-    if (parallax) { const px = (x - 0.5) * width * project.parallax.cameraStrength / 100; const py = (y - 0.5) * height * project.parallax.cameraStrength / 100; for (const entry of parallaxLayers) { const fitScale = Math.max(width / entry.image.width, height / entry.image.height) * (1 + project.parallax.overscan / 100) * Math.max(1, entry.layer.scale); const lw = entry.image.width * fitScale; const lh = entry.image.height * fitScale; context.drawImage(entry.image, (width - lw) / 2 - px * entry.layer.depth, (height - lh) / 2 + py * entry.layer.depth, lw, lh); } } else context.drawImage(a, (width - dw) / 2, (height - dh) / 2, dw, dh);
+    if (parallax) drawParallax!(context, width, height, x, y); else context.drawImage(a, (width - dw) / 2, (height - dh) / 2, dw, dh);
     if (parallax) return;
     const radius = project.lens.radius / 100 * Math.min(width, height); const cx = x * width; const cy = (1 - y) * height; const zoom = project.lens.magnification / 100;
     context.save(); context.beginPath(); context.arc(cx, cy, radius, 0, Math.PI * 2); context.clip();

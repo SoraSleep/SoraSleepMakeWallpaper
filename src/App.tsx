@@ -349,7 +349,7 @@ function App() {
   const projectLoader = <input ref={projectInput} hidden type="file" accept=".wallproj,application/json" onChange={(event) => openProject(event.target.files?.[0])} />;
 
   if (route === 'projects') {
-    return <><ProjectsPage project={project} onContinue={() => setRoute('editor')} onNew={() => setRoute('presets')} onOpen={() => projectInput.current?.click()} />{projectLoader}</>;
+    return <><ProjectsPage onPreset={(presetId) => { setSelectedPresetId(presetId); const preset = getPreset(presetId); setProjectTarget(preset.supportedTargets.length === 1 ? preset.supportedTargets[0] : 'both'); setRoute('create'); }} project={project} onContinue={() => setRoute('editor')} onNew={() => setRoute('presets')} onOpen={() => projectInput.current?.click()} />{projectLoader}</>;
   }
   if (route === 'presets') {
     return <PresetLibraryPage onBack={() => setRoute('projects')} onUse={(presetId) => { setSelectedPresetId(presetId); const preset = getPreset(presetId); setProjectTarget(preset.supportedTargets.length === 1 ? preset.supportedTargets[0] : 'both'); setRoute('create'); }} />;
