@@ -169,7 +169,7 @@ function resize(){const d=Math.min(devicePixelRatio||1,2);C.width=Math.max(1,Mat
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement('a'); anchor.href = url; anchor.download = `${safeTitle}.zip`; anchor.click();
   setTimeout(() => URL.revokeObjectURL(url), 0);
-  return { bytes: zip.byteLength, fileName: `${safeTitle}.zip` };
+  return { bytes: zip.byteLength, fileName: `${safeTitle}.zip`, blob };
 }
 
 export async function readProjectFile(file: File) {

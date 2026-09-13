@@ -26,5 +26,5 @@ export async function downloadMobileDistributionBundle(project: MotionPairProjec
   const zip = zipSync(files, { level: 0, mtime: new Date(0) });
   const blob = new Blob([zip], { type: 'application/zip' });
   const url = URL.createObjectURL(blob); const anchor = document.createElement('a'); anchor.href = url; anchor.download = `${safe}-mobile-bundle.zip`; anchor.click(); setTimeout(() => URL.revokeObjectURL(url), 0);
-  return { bytes: zip.byteLength, fileName: `${safe}-mobile-bundle.zip` };
+  return { bytes: zip.byteLength, fileName: `${safe}-mobile-bundle.zip`, blob };
 }

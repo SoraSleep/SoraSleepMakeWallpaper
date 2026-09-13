@@ -26,6 +26,7 @@ import { importImageJob } from './jobs/imageImportJob';
 import { runAlignmentJob, type AlignmentMetrics } from './jobs/alignmentJob';
 import { runDifferenceJob, type DifferenceResult } from './jobs/differenceJob';
 import { loadAutosave, saveAutosave } from './project/autosave';
+import { syncExportToManager, syncProjectToManager } from './project/managerBridge';
 import { downloadProject, exportWallpaperPackage, readProjectFile } from './project/projectFile';
 import { createProject, defaultParallaxSettings, type MaskStroke, type MotionPairProject, type ParallaxSettings, type ProjectAsset, type ProjectPreset } from './project/projectSchema';
 import { validateWallpaperPackage } from './project/packageValidator';
@@ -91,6 +92,7 @@ function App() {
     createdAt: new Date().toISOString(),
   }));
   const [projectNotice, setProjectNotice] = useState('Autosave enabled');
+  const [managerSync, setManagerSync] = useState<'pending' | 'synced' | 'error'>('pending');
   const [importProgress, setImportProgress] = useState<number | null>(null);
   const [projectHydrated, setProjectHydrated] = useState(false);
   const [canvasSettings, setCanvasSettings] = useState<MotionPairProject['canvas']>({ aspectRatio: '16:9', fit: 'cover', safeArea: { top: 0, bottom: 0, sides: 0 } });
@@ -132,7 +134,7 @@ function App() {
       preset: projectPreset,
       presetSettings: { ...snapshot.presetSettings, portal: { glow: portalGlow, ripple: portalRipple, rippleEnabled: portalRippleEnabled, reducedMotion } },
     };
-  }, [alignmentSettings, assetA, assetB, canvasSettings, differenceSettings, feather, followSpeed, magnification, mobileMotion, mobileRender, parallaxSettings, portalGlow, portalRipple, portalRippleEnabled, projectMeta, radius, reducedMotion, revealIntensity]);
+  }, [alignmentSettings, assetA, assetB, canvasSettings, differenceSettings, feather, followSpeed, magnification, mobileMotion, mobileRender, parallaxSettings, portalGlow, portalRipple, portalRippleEnabled, projectMeta, projectPreset, projectTarget, radius, reducedMotion, revealIntensity]);
 
   const applyProject = (nextProject: MotionPairProject) => {
     setProjectMeta({ id: nextProject.id, title: nextProject.title, createdAt: nextProject.createdAt });
@@ -179,6 +181,15 @@ function App() {
         .then(() => setProjectNotice('Saved locally'))
         .catch(() => setProjectNotice('Autosave failed'));
     }, 500);
+    return () => window.clearTimeout(timeout);
+  }, [project, projectHydrated]);
+
+  useEffect(() => {
+    if (!projectHydrated) return;
+    setManagerSync('pending');
+    const timeout = window.setTimeout(() => {
+      syncProjectToManager(project).then(() => setManagerSync('synced')).catch(() => setManagerSync('error'));
+    }, 8_000);
     return () => window.clearTimeout(timeout);
   }, [project, projectHydrated]);
 
@@ -326,8 +337,10 @@ function App() {
         }
         if (result.blob) {
           const bundle = await downloadMobileDistributionBundle(project, result.blob);
-          setProjectNotice(`Exported mobile ${result.format === 'webm' ? 'WebM fallback' : 'MP4'} + bundle · ${(bundle.bytes / 1024 / 1024).toFixed(2)} MB`);
-          setExportResult({ title: 'Mobile wallpaper bundle is ready.', detail: `${bundle.fileName} was downloaded with the video, fallback image, metadata and checksums.`, target: result.format === 'webm' ? 'Android / desktop WebM fallback bundle' : 'Android MP4 distribution bundle' });
+          let managerCopy = false;
+          try { await syncProjectToManager(project); await syncExportToManager(project, 'mobile-bundle', bundle.fileName, bundle.blob); managerCopy = true; setManagerSync('synced'); } catch { setManagerSync('error'); }
+          setProjectNotice(`Exported mobile ${result.format === 'webm' ? 'WebM fallback' : 'MP4'} + bundle · ${(bundle.bytes / 1024 / 1024).toFixed(2)} MB${managerCopy ? ' · saved to Manager' : ' · Manager copy failed'}`);
+          setExportResult({ title: 'Mobile wallpaper bundle is ready.', detail: `${bundle.fileName} was downloaded with the video, fallback image, metadata and checksums.${managerCopy ? ' A copy was saved to SoraSleep Main.' : ' The Manager copy failed; your browser download remains available.'}`, target: result.format === 'webm' ? 'Android / desktop WebM fallback bundle' : 'Android MP4 distribution bundle' });
           setRoute('export-result');
         } else setProjectNotice(`Exported mobile MP4 · ${(result.bytes / 1024 / 1024).toFixed(2)} MB`);
         setMobileExportProgress(null);
@@ -335,8 +348,10 @@ function App() {
       }
       setProjectNotice('Building offline wallpaper ZIP');
       const result = await exportWallpaperPackage(project, differenceResult);
-      setProjectNotice(`Exported ${result.fileName} · ${(result.bytes / 1024 / 1024).toFixed(2)} MB`);
-      setExportResult({ title: 'Desktop wallpaper package is ready.', detail: `${result.fileName} was downloaded with the offline runtime, assets, preview and checksums.`, target: 'Windows Wallpaper Engine Web package' });
+      let managerCopy = false;
+      try { await syncProjectToManager(project); await syncExportToManager(project, 'desktop-web', result.fileName, result.blob); managerCopy = true; setManagerSync('synced'); } catch { setManagerSync('error'); }
+      setProjectNotice(`Exported ${result.fileName} · ${(result.bytes / 1024 / 1024).toFixed(2)} MB${managerCopy ? ' · saved to Manager' : ' · Manager copy failed'}`);
+      setExportResult({ title: 'Desktop wallpaper package is ready.', detail: `${result.fileName} was downloaded with the offline runtime, assets, preview and checksums.${managerCopy ? ' A copy was saved to SoraSleep Main.' : ' The Manager copy failed; your browser download remains available.'}`, target: 'Windows Wallpaper Engine Web package' });
       setRoute('export-result');
     } catch (error) {
       setMobileExportProgress(null);
@@ -428,13 +443,13 @@ function App() {
         </button>
 
         <div className="top-actions">
-          <span className="save-status">{importProgress === null ? projectNotice : `Import ${Math.round(importProgress * 100)}%`}</span>
+          <span className="save-status">{importProgress === null ? `${projectNotice} · Manager: ${managerSync === 'synced' ? 'synced' : managerSync === 'error' ? 'sync failed' : 'pending'}` : `Import ${Math.round(importProgress * 100)}%`}</span>
           <button className="icon-button" aria-label="Reset lens" onClick={() => {
             setRadius(18); setFeather(14); setMagnification(145); setRevealIntensity(100); setFollowSpeed(78);
             setProjectNotice('Lens reset');
           }}><RotateCcw size={17} /></button>
           <button className="secondary-button" onClick={() => projectInput.current?.click()}><FolderOpen size={16} /> Open</button>
-          <button className="secondary-button" onClick={() => { downloadProject(project); setProjectNotice('Project downloaded'); }}><Save size={16} /> Save</button>
+          <button className="secondary-button" onClick={() => { downloadProject(project); syncProjectToManager(project).then(() => { setManagerSync('synced'); setProjectNotice('Project downloaded and saved to Manager'); }).catch(() => { setManagerSync('error'); setProjectNotice('Project downloaded · Manager copy failed'); }); }}><Save size={16} /> Save</button>
           <button className="secondary-button"><Eye size={16} /> Preview</button>
           <button className="primary-button" onClick={() => setRoute('export')}>
             <Download size={16} /> Export wallpaper
