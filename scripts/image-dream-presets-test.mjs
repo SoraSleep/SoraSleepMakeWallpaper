@@ -1,0 +1,21 @@
+import {spawn}from'node:child_process';import{createServer}from'node:http';import{readFileSync,mkdtempSync,writeFileSync,mkdirSync}from'node:fs';import{tmpdir}from'node:os';import path from'node:path';
+import{chromium}from'../../SoraSleep-Image-Dream/node_modules/playwright/index.mjs';import{createWallpaperBridge}from'../wallpaper-bridge.mjs';
+const bridge=createWallpaperBridge({dataRoot:mkdtempSync(path.join(tmpdir(),'preset-handoff-'))});
+const server=createServer((req,res)=>bridge(req,res,()=>{try{const uri=req.url.split('?')[0],file=path.join(process.cwd(),'dist',uri==='/'?'index.html':uri);res.setHeader('Content-Type',file.endsWith('.js')?'text/javascript':file.endsWith('.css')?'text/css':'text/html');res.end(readFileSync(file));}catch{res.statusCode=404;res.end();}}));
+await new Promise(r=>server.listen(17905,'127.0.0.1',r));
+const child=spawn(process.execPath,['server.js'],{cwd:path.resolve('../SoraSleep-Image-Dream'),env:{...process.env,PORT:'3001',HOST:'127.0.0.1',SORASLEEP_WALLPAPER_URL:'http://127.0.0.1:17905'},stdio:'ignore',windowsHide:true});
+let browser;mkdirSync('real-test-output',{recursive:true});
+try{
+ let ready=false;for(let i=0;i<40;i++){try{const r=await fetch('http://127.0.0.1:3001/api/health');if(r.ok){ready=true;break;}}catch{}await new Promise(r=>setTimeout(r,250));}if(!ready)throw new Error('Image Dream test server unavailable');
+ browser=await chromium.launch({headless:true,channel:'msedge'});const page=await browser.newPage({viewport:{width:1440,height:1000}});const errors=[];page.on('pageerror',e=>errors.push(e.message));let generationRequests=0;page.on('request',r=>{if(r.url().includes('/api/batch/start'))generationRequests++;});
+ await page.goto('http://127.0.0.1:3001');await page.getByRole('heading',{name:'Một ý tưởng. Một thế giới chuyển động.'}).waitFor();await page.screenshot({path:'real-test-output/image-dream-presets.png',fullPage:true});
+ await page.locator('[data-wallpaper-preset="portal-reveal"]').click();await page.getByLabel('Ý tưởng ảnh A',{exact:true}).fill('A cozy SFW lakeside café at blue hour');await page.getByLabel('Thay đổi mong muốn ở B',{exact:true}).fill('Change only lanterns to teal');
+ await page.getByRole('button',{name:'Chuẩn bị A trong Studio',exact:true}).click();await page.locator('#generatorTab').waitFor({state:'visible'});if(!(await page.locator('#txtPrompts').inputValue()).includes('lakeside'))throw new Error('Prompt not prepared');
+ await page.locator('#txtPrompts').fill('Keep my existing prompt');await page.getByRole('button',{name:'Quay lại preset',exact:true}).click();await page.locator('[data-wallpaper-preset="difference-lens"]').click();await page.getByRole('button',{name:'Chuẩn bị A trong Studio',exact:true}).click();if(await page.locator('#txtPrompts').inputValue()!=='Keep my existing prompt')throw new Error('Existing prompt overwritten');
+ for(const id of ['accountsTab','galleryTab','logsTab','schedulerTab']){await page.locator(`.nav-tab[data-tab="${id}"]`).click();await page.locator('#'+id).waitFor({state:'visible'});}
+ await page.locator('.nav-tab[data-tab="presetHub"]').click();await page.getByRole('button',{name:'Gửi kế hoạch sang MakeWallpaper',exact:true}).click();await page.locator('#wallpaperPlanLink').waitFor({state:'visible'});const target=await page.locator('#wallpaperPlanLink').getAttribute('href');
+ const wall=await browser.newPage();await wall.goto(target);await wall.getByText('Đã nhận kế hoạch từ Image Dream.',{exact:false}).waitFor();if(!(await wall.locator('.art-plan-form textarea').first().inputValue()).includes('lakeside'))throw new Error('Handoff prompt mismatch');
+ await page.setViewportSize({width:390,height:844});await page.screenshot({path:'real-test-output/image-dream-presets-mobile.png',fullPage:true});
+ if(errors.length)throw new Error(errors.join('\n'));if(generationRequests!==0)throw new Error('Preset selection triggered generation');
+ writeFileSync('real-test-output/image-dream-presets-report.json',JSON.stringify({homePresets:true,oldTabsReachable:true,promptPreserved:true,handoff:true,deepLink:true,mobileScreenshot:true,generationRequests,errors},null,2));console.log('PASS preset hub / old tabs / prompt preservation / handoff / deep link');
+}finally{if(browser)await browser.close();child.kill();await new Promise(r=>server.close(r));}

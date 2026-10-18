@@ -1,0 +1,23 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { mkdtempSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
+import { createHash } from 'node:crypto';
+import { createJobStore, validateIntake } from './wallpaper-jobs.mjs';
+import { unzipSync } from 'fflate';
+test('durable intake verifies hashes, deduplicates and returns a review bundle', async()=>{
+  const bytes=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aS1sAAAAASUVORK5CYII=','base64');
+  const asset=role=>({relativePath:`assets/${role}.png`,mimeType:'image/png',width:1,height:1,bytes:bytes.length,sha256:createHash('sha256').update(bytes).digest('hex'),base64:bytes.toString('base64')});
+  const bundle={schemaVersion:1,contentScope:'sfw',jobId:'fixture-job-0001',productId:'fixture-product-01',idempotencyKey:'fixture-request-01',presetId:'portal-reveal',assets:Object.fromEntries(['imageA','imageB','differenceMask'].map(r=>[r,asset(r)]))};
+  assert.throws(()=>validateIntake({...bundle,schemaVersion:2}));
+  const broken=structuredClone(bundle);broken.assets.imageA.relativePath='../secret.png';assert.throws(()=>validateIntake(broken));
+  const badHash=structuredClone(bundle);badHash.assets.imageB.sha256='bad';assert.throws(()=>validateIntake(badHash));
+  const root=mkdtempSync(path.join(tmpdir(),'wallpaper-jobs-'));const store=createJobStore(root);
+  store.submit(bundle);assert.equal(store.submit(bundle).id,bundle.jobId);
+  assert.throws(()=>store.submit({...bundle,presetId:'difference-lens'}),/conflict/);
+  await new Promise(resolve=>setImmediate(resolve));
+  assert.equal(store.read(bundle.jobId).status,'needs_review');
+  assert.ok(unzipSync(store.artifact(bundle.jobId))['manifest.json']);
+  assert.equal(createJobStore(root).list().length,1);
+});

@@ -1,3 +1,7 @@
+import {PlrStudio} from './plr/PlrStudio';
+import {TextToImageStudio} from './textToImage/TextToImageStudio';
+import {WardrobeStudio} from './wardrobe/WardrobeStudio';
+import {LandscapeStudio} from './landscape/LandscapeStudio';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   AlignCenter,
@@ -35,6 +39,8 @@ import { exportMobileVideo } from './export/mobileVideoExport';
 import { exportMobileVideoFallback } from './export/mobileMediaRecorderFallback';
 import { downloadMobileDistributionBundle } from './export/mobileDistributionBundle';
 import { ProjectsPage } from './pages/ProjectsPage';
+import { ArtworkPlanPage } from './pages/ArtworkPlanPage';
+import { ProductCenterPage } from './pages/ProductCenterPage';
 import { PresetLibraryPage } from './pages/PresetLibraryPage';
 import { CreateProjectPage } from './pages/CreateProjectPage';
 import { ExportCenterPage } from './pages/ExportCenterPage';
@@ -58,7 +64,8 @@ function App() {
     width: 1254, height: 1254, size: 2250633, rights: 'unknown',
   };
   const [activeStep, setActiveStep] = useState<Step>('Lens');
-  const [route, setRoute] = useState<AppRoute>('projects');
+  const [route, setRoute] = useState<AppRoute>(() => new URLSearchParams(window.location.search).get('studio')==='text-to-image'?'text-to-image':new URLSearchParams(window.location.search).get('studio')==='plr'?'plr':new URLSearchParams(window.location.search).get('studio')==='wardrobe'?'wardrobe':new URLSearchParams(window.location.search).get('studio')==='landscape'?'landscape':new URLSearchParams(window.location.search).has('planId') ? 'artwork-plan' : 'projects');
+  const [projectExtras,setProjectExtras]=useState<Record<string,unknown>>({});
   const [selectedPresetId, setSelectedPresetId] = useState<PresetId>('difference-lens');
   const [projectPreset, setProjectPreset] = useState<ProjectPreset>({ id: 'difference-lens', version: 1 });
   const [projectTarget, setProjectTarget] = useState<PresetTarget>('both');
@@ -132,11 +139,12 @@ function App() {
       parallax: parallaxSettings,
       target: projectTarget,
       preset: projectPreset,
-      presetSettings: { ...snapshot.presetSettings, portal: { glow: portalGlow, ripple: portalRipple, rippleEnabled: portalRippleEnabled, reducedMotion } },
+      presetSettings: { ...snapshot.presetSettings,...projectExtras, portal: { glow: portalGlow, ripple: portalRipple, rippleEnabled: portalRippleEnabled, reducedMotion } },
     };
-  }, [alignmentSettings, assetA, assetB, canvasSettings, differenceSettings, feather, followSpeed, magnification, mobileMotion, mobileRender, parallaxSettings, portalGlow, portalRipple, portalRippleEnabled, projectMeta, projectPreset, projectTarget, radius, reducedMotion, revealIntensity]);
+  }, [projectExtras,alignmentSettings, assetA, assetB, canvasSettings, differenceSettings, feather, followSpeed, magnification, mobileMotion, mobileRender, parallaxSettings, portalGlow, portalRipple, portalRippleEnabled, projectMeta, projectPreset, projectTarget, radius, reducedMotion, revealIntensity]);
 
   const applyProject = (nextProject: MotionPairProject) => {
+    setProjectExtras(nextProject.presetSettings?.wardrobe?{wardrobe:nextProject.presetSettings.wardrobe}:{});
     setProjectMeta({ id: nextProject.id, title: nextProject.title, createdAt: nextProject.createdAt });
     setAssetA(nextProject.assets.imageA);
     setAssetB(nextProject.assets.imageB);
@@ -230,6 +238,7 @@ function App() {
     try {
       const asset = await importImageJob(file, controller.signal, ({ progress }) => setImportProgress(progress));
       if (slot === 'A') setAssetA(asset); else setAssetB(asset);
+      setProjectExtras({});
       setAlignmentSettings({ status: 'pending', transform: [1, 0, 0, 1, 0, 0] });
       setAlignmentMetrics(null);
       setProjectNotice(`Image ${slot} imported`);
@@ -364,14 +373,21 @@ function App() {
   const projectLoader = <input ref={projectInput} hidden type="file" accept=".wallproj,application/json" onChange={(event) => openProject(event.target.files?.[0])} />;
 
   if (route === 'projects') {
-    return <><ProjectsPage onPreset={(presetId) => { setSelectedPresetId(presetId); const preset = getPreset(presetId); setProjectTarget(preset.supportedTargets.length === 1 ? preset.supportedTargets[0] : 'both'); setRoute('create'); }} project={project} onContinue={() => setRoute('editor')} onNew={() => setRoute('presets')} onOpen={() => projectInput.current?.click()} />{projectLoader}</>;
+    return <><ProjectsPage onPlr={() => setRoute('plr')} onWardrobe={() => setRoute('wardrobe')} onLandscape={() => setRoute('landscape')} onProducts={() => setRoute('products')} onPlan={() => setRoute('artwork-plan')} onPreset={(presetId) => { setSelectedPresetId(presetId); const preset = getPreset(presetId); setProjectTarget(preset.supportedTargets.length === 1 ? preset.supportedTargets[0] : 'both'); setRoute('create'); }} project={project} onContinue={() => setRoute('editor')} onNew={() => setRoute('presets')} onOpen={() => projectInput.current?.click()} />{projectLoader}</>;
   }
+  if (route === 'plr') return <PlrStudio onBack={() => setRoute('projects')}/>;
+  if (route === 'text-to-image') return <TextToImageStudio onBack={() => {window.history.replaceState(null,'',window.location.pathname);setRoute('projects');}}/>;
+  if (route === 'wardrobe') return <WardrobeStudio onBack={() => setRoute('projects')} onUse={p=>{applyProject(p);setRoute('editor');}}/>;
+  if (route === 'landscape') return <LandscapeStudio onBack={() => setRoute('projects')} />;
+  if (route === 'artwork-plan') return <ArtworkPlanPage onBack={() => setRoute('projects')} />;
+  if (route === 'products') return <ProductCenterPage onBack={() => setRoute('projects')} />;
   if (route === 'presets') {
-    return <PresetLibraryPage onBack={() => setRoute('projects')} onUse={(presetId) => { setSelectedPresetId(presetId); const preset = getPreset(presetId); setProjectTarget(preset.supportedTargets.length === 1 ? preset.supportedTargets[0] : 'both'); setRoute('create'); }} />;
+    return <PresetLibraryPage onPlr={() => setRoute('plr')} onBack={() => setRoute('projects')} onUse={(presetId) => { setSelectedPresetId(presetId); const preset = getPreset(presetId); setProjectTarget(preset.supportedTargets.length === 1 ? preset.supportedTargets[0] : 'both'); setRoute('create'); }} />;
   }
   if (route === 'create') {
     return <CreateProjectPage
       presetId={selectedPresetId}
+      onPresetChange={setSelectedPresetId}
       target={projectTarget}
       title={projectMeta.title}
       assetA={assetA}
@@ -524,7 +540,7 @@ function App() {
             <div className="frame-stat">WEBGL 2 <i /> {rendererMetrics.fps > 0 ? `${rendererMetrics.fps.toFixed(0)} FPS · ${rendererMetrics.frameMs.toFixed(1)} MS` : `${previewFps} FPS TARGET`}</div>
           </div>
           <div className="canvas-caption">
-            <span>{selectedPresetId === 'layered-parallax' ? 'Move the pointer to shift each layer by its assigned depth.' : 'Move the lens to magnify A and reveal only the changed regions from B.'}</span>
+            <span>{selectedPresetId === 'layered-parallax' ? 'Move the pointer to shift each layer by its assigned depth.' : selectedPresetId === 'portal-reveal' ? 'Move the portal to reveal image B through a window.' : 'Move the lens to magnify A and reveal approved differences from B.'}</span>
             <span>Fit: {canvasSettings.fit === 'cover' ? 'Cover' : 'Contain'} · sRGB · WebGL 2</span>
           </div>
         </div>
@@ -541,6 +557,7 @@ function App() {
         <InspectorBody
           project={project}
           selectedPresetId={selectedPresetId}
+          onRevealModeChange={(id) => { setSelectedPresetId(id); setProjectPreset({ id, version: 1 }); }}
           onDepthMap={() => depthInput.current?.click()}
           parallaxSettings={parallaxSettings}
           setParallaxSettings={setParallaxSettings}
@@ -611,6 +628,7 @@ function App() {
 function InspectorBody({
   project,
   selectedPresetId,
+  onRevealModeChange,
   onDepthMap,
   parallaxSettings,
   setParallaxSettings,
@@ -675,6 +693,7 @@ function InspectorBody({
 }: {
   project: MotionPairProject;
   selectedPresetId: PresetId;
+  onRevealModeChange: (id: 'difference-lens' | 'portal-reveal') => void;
   onDepthMap: () => void;
   parallaxSettings: ParallaxSettings;
   setParallaxSettings: React.Dispatch<React.SetStateAction<ParallaxSettings>>;
@@ -942,6 +961,7 @@ function InspectorBody({
           <span><b>{getPreset(project.preset.id).name}</b><small>{getPreset(project.preset.id).summary}</small></span>
         </button>
       </div>
+      <label className="field-row"><span>Reveal Studio · Chế độ</span><select aria-label="Editor reveal mode" value={selectedPresetId} onChange={event => onRevealModeChange(event.target.value as 'difference-lens' | 'portal-reveal')}><option value="difference-lens">Difference Lens</option><option value="portal-reveal">Portal Reveal</option></select></label>
       <div className="control-group">
         <div className="control-title"><MousePointer2 size={15} /><span>{selectedPresetId === 'portal-reveal' ? 'PORTAL BEHAVIOR' : 'LENS BEHAVIOR'}</span></div>
         <RangeControl label="Radius" value={radius} min={8} max={32} unit="%" onChange={setRadius} />

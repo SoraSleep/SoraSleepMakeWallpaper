@@ -1,0 +1,17 @@
+import {createServer} from 'node:http';import fs from 'node:fs';import path from 'node:path';import {tmpdir} from 'node:os';import assert from 'node:assert/strict';
+import {chromium} from '../../SoraSleep-Image-Dream/node_modules/playwright/index.mjs';import {createWallpaperBridge} from '../wallpaper-bridge.mjs';
+const root=fs.mkdtempSync(path.join(tmpdir(),'c0-ui-'));const bridge=createWallpaperBridge({dataRoot:root});const requests=[];
+const server=createServer((req,res)=>{requests.push(req.url);bridge(req,res,()=>{try{const uri=new URL(req.url,'http://localhost').pathname;const file=path.resolve('dist','.'+(uri==='/'?'/index.html':uri));if(!file.startsWith(path.resolve('dist')+path.sep))throw new Error();res.setHeader('Content-Type',file.endsWith('.js')?'text/javascript':file.endsWith('.css')?'text/css':'text/html');res.end(fs.readFileSync(file));}catch{res.statusCode=404;res.end();}});});
+await new Promise(r=>server.listen(0,'127.0.0.1',r));const origin=`http://127.0.0.1:${server.address().port}`;const browser=await chromium.launch({headless:true,channel:'msedge'});const out=path.resolve('real-test-output/c0');fs.mkdirSync(out,{recursive:true});
+try{
+ const page=await browser.newPage({viewport:{width:1440,height:1000}});const errors=[];page.on('pageerror',e=>errors.push(e.message));await page.goto(origin);await page.getByRole('button',{name:/Create from prompt/}).click();
+ for(const workflow of ['landscape','stock']){
+  await page.getByLabel('Workflow',{exact:true}).selectOption(workflow);assert.equal(await page.getByLabel('Ảnh B cần thay đổi điều gì?').count(),0);assert.equal(await page.getByLabel('Preset',{exact:true}).count(),0);
+  await page.getByLabel('Prompt artwork',{exact:true}).fill('Spring sakura lake '+workflow);await page.getByRole('button',{name:'Lập kế hoạch',exact:true}).click();await page.getByRole('heading',{name:'Kế hoạch chờ duyệt'}).waitFor();
+  const saving=page.waitForResponse(r=>r.url().endsWith('/artwork-plans')&&r.request().method()==='POST');await page.getByRole('button',{name:'Lưu revision kế hoạch'}).click();assert.equal((await saving).status(),201);await page.getByRole('status').filter({hasText:/Đã lưu revision/}).waitFor();
+ }
+ const plans=await(await fetch(origin+'/artwork-plans')).json();assert.ok(plans.plans.some(p=>p.workflowType==='landscape'&&!p.requiresB));assert.ok(plans.plans.some(p=>p.workflowType==='stock'&&p.exportProfile==='stock-image'));
+ const stock=plans.plans.find(p=>p.workflowType==='stock');await page.goto(origin+'/?planId='+stock.planId);await page.waitForFunction(()=>document.querySelector('select')?.value==='stock');assert.equal(await page.getByLabel('Ảnh B cần thay đổi điều gì?').count(),0);
+ await page.screenshot({path:path.join(out,'stock-plan.png'),fullPage:true});await page.getByLabel('Workflow',{exact:true}).selectOption('character-wardrobe');await page.getByLabel('Ảnh B cần thay đổi điều gì?').waitFor();await page.getByLabel('Preset',{exact:true}).waitFor();
+ assert.deepEqual(errors,[]);assert.ok(!requests.some(r=>r.includes('/generate-a')||r.includes('/api/batch/start')));fs.writeFileSync(path.join(out,'ui-report.json'),JSON.stringify({passed:true,realHTTPPlanner:true,persistedWorkflowRevisions:true,reload:true,characterPairControls:true,errors,creditsSpent:0},null,2));console.log('PASS C0 real HTTP planner UI, persistence and reload');
+}finally{await browser.close();await new Promise(r=>server.close(r));}

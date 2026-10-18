@@ -1,0 +1,11 @@
+import {createHash} from 'node:crypto';
+export function validateLandscapeInput(input){
+ const id=/^[a-zA-Z0-9-]{8,80}$/;if(input?.schemaVersion!==1||input.contentScope!=='sfw'||input.workflowType!=='landscape'||input.presetId!=='spring-sakura'||![input.jobId,input.productId,input.idempotencyKey].every(v=>typeof v==='string'&&id.test(v))||input.regionReview!==true)throw new Error('invalid-landscape-contract');
+ const asset=input.assets?.imageA;if(!asset||Object.keys(input.assets).length!==1||!Number.isInteger(asset.width)||!Number.isInteger(asset.height)||asset.width<128||asset.height<128||asset.width>8192||asset.height>8192||asset.width*asset.height>16000000||typeof asset.base64!=='string'||asset.base64.length>34*1024*1024||!/^assets\/[a-zA-Z0-9_-]+\.(png|jpg|jpeg|webp)$/.test(asset.relativePath||''))throw new Error('invalid-landscape-asset');
+ const bytes=Buffer.from(asset.base64,'base64'),mime=asset.mimeType;
+ const valid=mime==='image/png'?bytes.subarray(0,8).equals(Buffer.from('89504e470d0a1a0a','hex')):mime==='image/jpeg'?bytes[0]===255&&bytes[1]===216&&bytes[2]===255:mime==='image/webp'?bytes.toString('ascii',0,4)==='RIFF'&&bytes.toString('ascii',8,12)==='WEBP':false;
+ if(!valid||bytes.length<24||bytes.length>24*1024*1024||asset.bytes!==bytes.length||createHash('sha256').update(bytes).digest('hex')!==asset.sha256)throw new Error('landscape-asset-integrity-failed');
+ const s=input.landscape;if(!s||s.recipe!=='spring-sakura'||!Number.isFinite(s.duration)||s.duration<4||s.duration>30||Math.abs(s.duration-input.render?.duration)>.000001||!Number.isInteger(s.seed)||s.seed<0||s.seed>2147483647||!Number.isInteger(s.petals)||s.petals<0||s.petals>120||!Number.isFinite(s.petalSize)||s.petalSize<.3||s.petalSize>3||!Number.isFinite(s.waterStrength)||s.waterStrength<0||s.waterStrength>4||!Number.isFinite(s.lightStrength)||s.lightStrength<0||s.lightStrength>.2||typeof s.reducedMotion!=='boolean')throw new Error('invalid-landscape-settings');
+ for(const regions of [s.waterRegions,s.lightRegions,s.protectedRegions]){if(!Array.isArray(regions)||regions.length>20)throw new Error('invalid-landscape-regions');for(const r of regions)if(!r||![r.x,r.y,r.width,r.height].every(Number.isFinite)||r.x<0||r.y<0||r.width<=0||r.height<=0||r.x+r.width>1.000001||r.y+r.height>1.000001)throw new Error('invalid-landscape-region');}
+ return input;
+}

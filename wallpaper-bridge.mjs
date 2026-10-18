@@ -1,6 +1,14 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { closeSync, createWriteStream, existsSync, mkdirSync, openSync, readFileSync, readSync, readdirSync, renameSync, unlinkSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
+import { createJobStore } from './wallpaper-jobs.mjs';
+import { createArtworkPlan } from './wallpaper-art-plan.mjs';
+import { createPlanStore } from './artwork-plan-store.mjs';
+import { buildSalesBundle } from './sales-bundle.mjs';
+import { createProductStore } from './product-store.mjs';
+import { createImageDreamAdapter } from './image-dream-adapter.mjs';
+import { createRenderJobStore } from './render-jobs.mjs';
+import {readLandscapeSource} from './landscape-source.mjs';
 
 const PROJECT_LIMIT = 256 * 1024 * 1024;
 const EXPORT_LIMIT = 1024 * 1024 * 1024;
@@ -103,14 +111,100 @@ export function bridgeStatus(dataRoot) {
   };
 }
 
-export function createWallpaperBridge({ dataRoot = path.join(process.env.SORASLEEP_MAIN || 'D:\\SoraSleep Main', 'Data', 'Wallpaper') } = {}) {
+export function createWallpaperBridge({ dataRoot = path.join(process.env.SORASLEEP_MAIN || 'D:\\SoraSleep Main', 'Data', 'Wallpaper'), renderWorker } = {}) {
+  const jobs = createJobStore(path.join(dataRoot, 'Jobs'));
+  const plans = createPlanStore(path.join(dataRoot, 'ArtworkPlans'));
+  const products = createProductStore(path.join(dataRoot, 'Products'));
+  const dream = createImageDreamAdapter({root:path.join(dataRoot,'Generation')});
+  const renders = createRenderJobStore({root:path.join(dataRoot,'RenderJobs'),...(renderWorker?{worker:renderWorker}:{})});
   return async (request, response, next) => {
     const pathname = new URL(request.url || '/', 'http://127.0.0.1').pathname;
-    if (!['/health', '/jobs', '/bridge/status'].includes(pathname) && !pathname.startsWith('/bridge/projects/') && !pathname.startsWith('/bridge/exports/')) return next();
-    if (!isLocalRequest(request, request.method === 'PUT')) return reply(response, 403, { error: 'local-origin-required' });
+    if(pathname==='/landscape-source'){
+      if(!isLocalRequest(request)||request.method!=='GET')return reply(response,403,{error:'local-origin-required'});
+      try{const result=await readLandscapeSource(new URL(request.url,'http://local').searchParams.get('assetId'));response.setHeader('Content-Type',result.mimeType);response.setHeader('X-Content-Type-Options','nosniff');response.setHeader('Cache-Control','no-store');return response.end(result.bytes);}catch(error){return reply(response,400,{error:error.message});}
+    }
+    if(pathname==='/render-jobs'||pathname.startsWith('/render-jobs/')){
+      if(!isLocalRequest(request,request.method!=='GET'))return reply(response,403,{error:'local-origin-required'});
+      try{
+        const [, ,id,action,kind]=pathname.split('/');
+        if(request.method==='GET'&&!id)return reply(response,200,{schemaVersion:1,jobs:renders.list()});
+        if(request.method==='GET'&&action==='artifacts'){const result=renders.artifact(id,kind);if(!result)return reply(response,404,{error:'not-found'});response.setHeader('Content-Type',result.artifact.mimeType);response.setHeader('Content-Disposition',`attachment; filename="${result.artifact.name}"`);return response.end(result.bytes);}
+        if(request.method==='GET'){const job=renders.read(id);return reply(response,job?200:404,job||{error:'not-found'});}
+        if(request.method==='POST'&&id)return reply(response,200,renders.action(id,action));
+        if(request.method==='POST'){
+          if(!String(request.headers['content-type']||'').startsWith('application/json'))return reply(response,415,{error:'json-required'});
+          let size=0;const chunks=[];for await(const chunk of request){size+=chunk.length;if(size>100*1024*1024)return reply(response,413,{error:'payload-too-large'});chunks.push(chunk);}
+          return reply(response,202,renders.submit(JSON.parse(Buffer.concat(chunks).toString('utf8'))));
+        }
+        return reply(response,405,{error:'method-not-allowed'});
+      }catch(error){return reply(response,error.message==='idempotency-conflict'?409:400,{error:error.message});}
+    }
+    if(pathname.startsWith('/image-dream/')){
+      if(!isLocalRequest(request,request.method!=='GET'))return reply(response,403,{error:'local-origin-required'});
+      try{
+        if(request.method==='GET'&&pathname==='/image-dream/capabilities')return reply(response,200,await dream.capabilities());
+        if(request.method==='GET'&&pathname==='/image-dream/models')return reply(response,200,await dream.models());
+        if(request.method==='GET'&&pathname==='/image-dream/generations')return reply(response,200,{generations:dream.list()});
+        if(request.method==='POST'){
+          let size=0;const chunks=[];for await(const chunk of request){size+=chunk.length;if(size>8192)return reply(response,413,{error:'payload-too-large'});chunks.push(chunk);}
+          const input=JSON.parse(Buffer.concat(chunks).toString('utf8'));
+          if(pathname==='/image-dream/generate-a'){const plan=plans.list().find(p=>p.planId===input.planId&&p.revision===input.revision);if(!plan)return reply(response,404,{error:'plan-not-found'});return reply(response,202,await dream.startA(plan,input));}
+          if(pathname==='/image-dream/refresh')return reply(response,200,await dream.refresh(input.id));
+        }
+        return reply(response,405,{error:'unsupported-operation'});
+      }catch(error){return reply(response,503,{error:error.message});}
+    }
+    if(pathname==='/products'||pathname.startsWith('/products/')){
+      if(!isLocalRequest(request,request.method==='POST'))return reply(response,403,{error:'local-origin-required'});
+      try{
+        if(request.method==='GET'&&pathname==='/products')return reply(response,200,{products:products.list()});
+        if(request.method==='GET'){const result=products.download(pathname.split('/')[2]);if(!result)return reply(response,404,{error:'not-found'});response.setHeader('Content-Type','application/zip');response.setHeader('Content-Disposition',`attachment; filename="${result.item.fileName}"`);return response.end(result.bytes);}
+        if(request.method==='POST'&&pathname==='/products'){
+          let size=0;const chunks=[];for await(const chunk of request){size+=chunk.length;if(size>90*1024*1024)return reply(response,413,{error:'payload-too-large'});chunks.push(chunk);}
+          return reply(response,201,products.save(JSON.parse(Buffer.concat(chunks).toString('utf8'))));
+        }
+        return reply(response,405,{error:'method-not-allowed'});
+      }catch(error){return reply(response,400,{error:error.message});}
+    }
+    if(pathname==='/sales-bundle'){
+      if(!isLocalRequest(request,true))return reply(response,403,{error:'local-origin-required'});
+      if(request.method!=='POST')return reply(response,405,{error:'method-not-allowed'});
+      try{
+        let size=0;const chunks=[];for await(const chunk of request){size+=chunk.length;if(size>90*1024*1024)return reply(response,413,{error:'payload-too-large'});chunks.push(chunk);}
+        const result=buildSalesBundle(JSON.parse(Buffer.concat(chunks).toString('utf8')));
+        response.setHeader('Content-Type','application/zip');response.setHeader('Content-Disposition',`attachment; filename="${result.fileName}"`);return response.end(result.bytes);
+      }catch(error){return reply(response,400,{error:error.message});}
+    }
+    if (!['/health', '/jobs', '/artwork-plans', '/artwork-plan', '/capabilities', '/bridge/status'].includes(pathname) && !pathname.startsWith('/jobs/') && !pathname.startsWith('/bridge/projects/') && !pathname.startsWith('/bridge/exports/')) return next();
+    if (!isLocalRequest(request, ['PUT','POST'].includes(request.method))) return reply(response, 403, { error: 'local-origin-required' });
+    if (pathname === '/artwork-plans' && request.method === 'GET') return reply(response,200,{plans:plans.list()});
+    if (pathname === '/artwork-plan' || pathname === '/artwork-plans') {
+      if (request.method !== 'POST') return reply(response,405,{error:'method-not-allowed'});
+      if (!String(request.headers['content-type'] || '').startsWith('application/json')) return reply(response,415,{error:'json-required'});
+      try {
+        const chunks=[];let size=0;
+        for await(const chunk of request){size+=chunk.length;if(size>32*1024)return reply(response,413,{error:'payload-too-large'});chunks.push(chunk);}
+        const input=JSON.parse(Buffer.concat(chunks).toString('utf8'));
+        return reply(response,pathname === '/artwork-plans'?201:200,pathname === '/artwork-plans'?plans.save(input):createArtworkPlan(input));
+      } catch(error){return reply(response,error.message==='revision-conflict'?409:400,{error:error.message});}
+    }
+    if (request.method === 'GET' && pathname === '/capabilities') return reply(response,200,{schemaVersion:1,workflowSchemaVersion:1,planningWorkflows:['pair-reveal','landscape','stock','character-wardrobe'],renderWorkflows:['pair-reveal','character-wardrobe','landscape'],landscapeRecipes:['spring-sakura'],singleImageMotion:true,wardrobeStudio:true,automaticMaskedEdit:false,submitIntake:true,render:true,renderTargets:['mp4','desktop'],renderJobsPath:'/render-jobs',commercialReady:false});
+    if (pathname === '/jobs' || pathname.startsWith('/jobs/')) {
+      try {
+        const [, , id, action] = pathname.split('/');
+        if(request.method==='GET' && !id) return reply(response,200,{jobs:jobs.list()});
+        if(request.method==='GET' && action==='artifact'){const bytes=jobs.artifact(id);if(!bytes)return reply(response,404,{error:'not-found'});response.setHeader('Content-Type','application/zip');return response.end(bytes);}
+        if(request.method==='GET'){const job=jobs.read(id);return reply(response,job?200:404,job||{error:'not-found'});}
+        if(request.method==='POST' && id) return reply(response,200,jobs.action(id,action));
+        if(request.method==='POST') {
+          let body='';for await(const chunk of request){body+=chunk;if(Buffer.byteLength(body)>100*1024*1024)return reply(response,413,{error:'payload-too-large'});}
+          return reply(response,202,jobs.submit(JSON.parse(body)));
+        }
+        return reply(response,405,{error:'method-not-allowed'});
+      } catch(error){return reply(response,error.message==='idempotency-conflict'?409:400,{error:error.message});}
+    }
     if (request.method === 'GET' && pathname === '/health') return reply(response, 200, { ok: true, service: 'wallpaper', version: '0.1.0', telemetry: 'files', jobTelemetry: 'unavailable', ...bridgeStatus(dataRoot) });
-    if (request.method === 'GET' && pathname === '/jobs') return reply(response, 501, { error: 'job-telemetry-not-implemented' });
-    if (request.method === 'GET' && pathname === '/bridge/status') return reply(response, 200, bridgeStatus(dataRoot));
+    if (request.method === 'GET' && pathname === '/bridge/status') return reply(response, 200, {...bridgeStatus(dataRoot),products:products.list()});
     if (request.method !== 'PUT') return reply(response, 405, { error: 'method-not-allowed' });
     const parts = pathname.split('/').filter(Boolean);
     const id = parts[2];

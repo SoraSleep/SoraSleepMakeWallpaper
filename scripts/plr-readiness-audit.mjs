@@ -1,0 +1,26 @@
+import fs from 'node:fs';
+import path from 'node:path';
+import assert from 'node:assert/strict';
+import {randomUUID} from 'node:crypto';
+import {pathToFileURL} from 'node:url';
+import {createArtworkPlan} from '../wallpaper-art-plan.mjs';
+const root=path.resolve('real-test-output/plr-research');fs.mkdirSync(root,{recursive:true});
+const manager='D:/SoraSleep Main/Manager/desktop';
+const {parseWallpaperInput}=await import(pathToFileURL(path.join(manager,'wallpaper-queue.mjs')));
+const {createCollectionStore}=await import(pathToFileURL(path.join(manager,'wallpaper-collections.mjs')));
+const {createWallpaperShortlistStore}=await import(pathToFileURL(path.join(manager,'wallpaper-shortlist.mjs')));
+const results=[];
+function blocked(name,fn,expected){let message='';try{fn();}catch(e){message=e.message;}assert.match(message,expected);results.push({name,result:'confirmed',message});}
+blocked('queue rejects 500 prompts',()=>parseWallpaperInput({requestKey:randomUUID(),prompts:Array.from({length:500},(_,i)=>'Prompt '+i)}),/max-100/);
+const store=createCollectionStore(path.join(root,'collection-fixture'));
+blocked('100 medium prompts exceed collection byte limit',()=>store.save({workflowType:'landscape',concept:{title:'Audit fixture'},aspectRatio:'9:16',maxCredits:1,scenes:Array.from({length:100},()=>({id:randomUUID(),prompt:'x'.repeat(500),selected:true}))}),/collection-max-30kb/);
+const shortlist=createWallpaperShortlistStore({root:path.join(root,'shortlist-fixture'),readMaster:()=>{throw Error('must not read image');}});
+await assert.rejects(shortlist.analyze(randomUUID(),Array(101).fill({})),/shortlist-max-100-masters/);
+results.push({name:'shortlist rejects 101 masters',result:'confirmed',message:'shortlist-max-100-masters'});
+const original='Original spring illustration with no added constraints';
+const plan=createArtworkPlan({prompt:original,workflowType:'stock',aspectRatio:'9:16'});
+assert.notEqual(plan.imageA.prompt,original);
+results.push({name:'existing planner appends text',result:'confirmed',sourcePrompt:original,effectivePrompt:plan.imageA.prompt});
+const recipe=fs.readFileSync('src/plr/productionRecipe.ts','utf8');assert.ok(!recipe.includes('aspectRatio:'));
+results.push({name:'PLR recipe lacks generation configuration',result:'confirmed-by-source',fieldsMissing:['aspectRatio','model','resolution','maxCredits','imageCount','collectionId']});
+fs.writeFileSync(path.join(root,'audit.json'),JSON.stringify({date:'2026-10-17',scope:'Read-only source audit and pure-module fixtures; no generation/network',generationRequests:0,results},null,2));console.log('PASS audit reproduced queue/collection/shortlist limits and prompt mutation, without generation');

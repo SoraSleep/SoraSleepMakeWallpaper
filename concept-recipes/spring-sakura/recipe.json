@@ -1,0 +1,21 @@
+{
+  "status": "planning-example-not-supported-import-schema",
+  "title": "Spring Sakura Calm",
+  "theme": "original spring botanical and landscape art",
+  "palette": [
+    "dusty pink",
+    "sage",
+    "warm ivory"
+  ],
+  "exclusions": [
+    "people",
+    "text",
+    "logos",
+    "artist names",
+    "copyrighted characters"
+  ],
+  "stockPreferredAspect": "16:9",
+  "wallpaperPreferredAspect": "9:16",
+  "notes": "Choose one output intent/aspect per existing Manager collection; generate compositions separately. Do not treat crops as distinct stock concepts.",
+  "scenes": 6
+}

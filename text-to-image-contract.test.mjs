@@ -1,0 +1,4 @@
+import test from 'node:test';import assert from 'node:assert/strict';
+import {parseLandscapePrompts,landscapeBatchPolicy} from './src/textToImage/contract.ts';
+test('accept 500 verbatim ordered prompts and reject 501',()=>{const prompts=Array.from({length:500},(_,i)=>`Landscape ${i}  untouched `),rows=parseLandscapePrompts(prompts.join('\n'),'txt');assert.deepEqual(rows.map(row=>row.prompt),prompts);assert.throws(()=>parseLandscapePrompts([...prompts,'501'].join('\n'),'txt'),/500/);});
+test('CSV multiline and duplicates survive; static free-only contract',()=>{const rows=parseLandscapePrompts('prompt,title\n"mountain, lake\nfog",Scene\n"mountain, lake\nfog",Copy','csv');assert.equal(rows.length,2);assert.equal(rows[0].prompt,rows[1].prompt);assert.equal(landscapeBatchPolicy.background,'keep');assert.equal(landscapeBatchPolicy.motion,false);assert.equal(landscapeBatchPolicy.models,'free_models');});

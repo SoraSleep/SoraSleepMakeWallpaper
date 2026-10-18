@@ -1,0 +1,7 @@
+import fs from 'node:fs';import os from 'node:os';import path from 'node:path';import assert from 'node:assert/strict';import {pathToFileURL} from 'node:url';
+const {createPlrListing}=await import(pathToFileURL('D:/SoraSleep Main/Manager/desktop/plr-listing.mjs'));
+const folder=fs.mkdtempSync(path.join(os.tmpdir(),'plr-listing-final-')),key='a'.repeat(64);let verified=0;
+const packager={details:()=>({folder,report:{title:'Landscape',totalImages:1,files:[{file:'landscape.zip'}]},manifest:{layout:'native-canvas',files:[{file:'images/scene.jpg',transparent:false}]}}),artifact:async()=>{verified++;}};
+const listing=createPlrListing({packager,makeCover:async(job,target)=>{assert.equal(job.transparentBackground,false);assert.equal(job.format,'JPG');fs.writeFileSync(target,'cover fixture');}});
+const result=await listing.build('run',key);assert.equal(result.contents.transparentBackground,false);assert.equal(result.contents.format,'JPG');assert.ok(result.description.includes('Original backgrounds'));assert.ok(!result.tags.includes('watercolor clipart'));assert.equal((await listing.build('run',key)).key,result.key);assert.equal(verified,2);
+const artifact=await listing.artifact('run',key,result.key,'listing-cover.jpg');fs.writeFileSync(artifact.file,'tampered');await assert.rejects(listing.artifact('run',key,result.key,'listing-cover.jpg'),/file-changed/);console.log('PASS: native JPG claims, idempotency, package verification and tamper rejection');

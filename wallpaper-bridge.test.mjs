@@ -30,7 +30,7 @@ test('bridge saves projects and exports only from its local origin', async () =>
     assert.equal(status.exportCount, 1);
     assert.match(status.exports[0].fileName, /scene\.zip$/);
     assert.equal((await fetch(`${origin}/health`)).status, 200);
-    assert.equal((await fetch(`${origin}/jobs`)).status, 501);
+    assert.equal((await fetch(`${origin}/jobs`)).status, 200);
   } finally {
     await new Promise((resolve) => server.close(resolve));
   }

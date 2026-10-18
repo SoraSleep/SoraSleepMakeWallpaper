@@ -100,12 +100,13 @@ export async function exportMobileVideo(project: MotionPairProject, mask: Export
     // from retaining the entire animation in memory when hardware encoding is slow.
     if (encoder.encodeQueueSize >= fps) await encoder.flush();
     if (failure) throw failure;
-    const frame = new VideoFrame(canvas, { timestamp: Math.round(index * 1_000_000 / fps) });
+    const frame = new VideoFrame(canvas, { timestamp: Math.round(index * 1_000_000 / fps), duration: Math.round(1_000_000 / fps) });
     try { encoder.encode(frame, { keyFrame: index % (fps * 2) === 0 }); } finally { frame.close(); }
   };
   const duration = project.mobileMotion.duration;
   const portal = project.preset.id === 'portal-reveal';
   const portalSettings = (project.presetSettings.portal ?? {}) as { glow?: number; ripple?: number; rippleEnabled?: boolean; reducedMotion?: boolean };
+  try {
   for (let index = 0; index < Math.ceil(duration * fps); index += 1) {
     if (signal?.aborted) { encoder.close(); throw new DOMException('Export cancelled', 'AbortError'); }
     const time = index / fps; const phase = (time % duration) / duration; const angle = phase * Math.PI * 2;
@@ -136,6 +137,7 @@ export async function exportMobileVideo(project: MotionPairProject, mask: Export
     if (portal && portalSettings.rippleEnabled !== false && !still) { const ripple = Number(portalSettings.ripple ?? 0) / 100; for (let ring = 0; ring < 2; ring += 1) { const ringPhase = (phase + ring * 0.5) % 1; context.globalAlpha = (1 - ringPhase) * ripple * 0.45; context.lineWidth = Math.max(1, width / 1080); context.beginPath(); context.arc(cx, cy, radius * (1 + ringPhase * 0.5), 0, Math.PI * 2); context.stroke(); } } context.restore();
     await encodeCanvas(index); onProgress?.((index + 1) / Math.ceil(duration * fps));
   }
-  await encoder.flush(); encoder.close(); if (failure) throw failure; muxer.finalize();
+  await encoder.flush(); if (failure) throw failure; muxer.finalize();
+  } finally { if (encoder.state !== 'closed') encoder.close(); }
   const blob = new Blob([target.buffer], { type: 'video/mp4' }); const url = URL.createObjectURL(blob); const anchor = document.createElement('a'); anchor.href = url; anchor.download = `${project.title.toLowerCase().replace(/[^a-z0-9]+/g, '-') || 'mobile-wallpaper'}-${width}x${height}.mp4`; anchor.click(); setTimeout(() => URL.revokeObjectURL(url), 0); return { bytes: target.buffer.byteLength, blob };
 }

@@ -1,6 +1,10 @@
 import { MotionPairProject, parseProject, safeProjectFileName, serializeProject } from './projectSchema';
 import { strToU8, zipSync } from 'fflate';
 import { validatePackageFiles } from './packageValidator';
+import pairRuntime from '../export/pair-runtime.js?raw';
+
+const escapeHtml = (value: string) => value.replace(/[&<>"']/g, character => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[character]!));
+const scriptJson = (value: unknown) => JSON.stringify(value).replace(/</g, '\\u003c').replace(/\u2028/g, '\\u2028').replace(/\u2029/g, '\\u2029');
 
 export function downloadProject(project: MotionPairProject) {
   const blob = new Blob([serializeProject(project)], { type: 'application/json' });
@@ -36,7 +40,7 @@ async function encodeMaskPng(mask: { width: number; height: number; data: Uint8C
   const pixels = context.createImageData(mask.width, mask.height);
   for (let index = 0; index < mask.data.length; index += 1) {
     const output = index * 4; const value = mask.data[index];
-    pixels.data[output] = pixels.data[output + 1] = pixels.data[output + 2] = value; pixels.data[output + 3] = 255;
+    pixels.data[output] = pixels.data[output + 1] = pixels.data[output + 2] = 255; pixels.data[output + 3] = value;
   }
   context.putImageData(pixels, 0, 0);
   const blob = await new Promise<Blob>((resolve, reject) => canvas.toBlob((value) => value ? resolve(value) : reject(new Error('Could not encode difference mask.')), 'image/png'));
@@ -53,7 +57,9 @@ async function bakeAlignedPng(bytes: Uint8Array, mimeType: string, width: number
   const context = output.getContext('2d');
   if (!context) throw new Error('Could not create aligned asset canvas.');
   const [a, b, c, d, tx, ty] = transform;
-  context.setTransform(a, b, c, d, tx * width, ty * height);
+  const determinant = a*d-b*c;
+  if (Math.abs(determinant)<1e-6) throw new Error('Alignment is singular.');
+  context.setTransform(d/determinant, -b/determinant*height/width, -c/determinant*width/height, a/determinant, (c*ty-d*tx)/determinant*width, (b*tx-a*ty)/determinant*height);
   context.drawImage(source, 0, 0);
   const blob = await new Promise<Blob>((resolve, reject) => output.toBlob((value) => value ? resolve(value) : reject(new Error('Could not encode aligned image.')), 'image/png'));
   return new Uint8Array(await blob.arrayBuffer());
@@ -97,7 +103,7 @@ export async function exportWallpaperPackage(
       ...project.parallax,
       layers: project.parallax.layers.map((layer, index) => ({ ...layer, asset: index === 0 ? `assets/image-a.${assetExtension(project.assets.imageA)}` : 'assets/image-b-aligned.png' })),
     } : undefined,
-    differenceMask: differenceMask ? { width: differenceMask.width, height: differenceMask.height, asset: 'assets/difference-mask.png', data: Array.from(differenceMask.data) } : null,
+    differenceMask: differenceMask ? { width: differenceMask.width, height: differenceMask.height, asset: 'assets/difference-mask.png', ...(['difference-lens','portal-reveal'].includes(project.preset.id)?{}:{data:Array.from(differenceMask.data)}) } : null,
   };
   const runtime = `const C=document.querySelector('canvas'),X=C.getContext('2d'),Q=window.WALLPAPER_CONFIG;let A=new Image(),B=new Image(),M=Q.differenceMask,MI=new Image(),P={x:.68,y:.6},T={...P},last=0;window.wallpaperPropertyListener={applyUserProperties:function(p){if(p.lensradius)Q.lens.radius=p.lensradius.value*100;if(p.magnification)Q.lens.magnification=p.magnification.value*100;if(p.feather)Q.lens.feather=p.feather.value*100;if(p.followspeed)Q.lens.followSpeed=p.followspeed.value;if(p.revealintensity)Q.lens.revealIntensity=p.revealintensity.value*100}};A.src=Q.assets.imageA;B.src=Q.assets.imageB;if(M&&M.asset)MI.src=M.asset;function fit(i){const s=Math.max(C.width/i.width,C.height/i.height),w=i.width*s,h=i.height*s;return{x:(C.width-w)/2,y:(C.height-h)/2,w,h}}function frame(t){const dt=Math.min((t-last)/1000,.1);last=t;P.x+=(T.x-P.x)*(1-Math.exp(-12*dt));P.y+=(T.y-P.y)*(1-Math.exp(-12*dt));if(A.complete&&B.complete){X.clearRect(0,0,C.width,C.height);const a=fit(A);X.drawImage(A,a.x,a.y,a.w,a.h);const r=Q.lens.radius/100*Math.min(C.width,C.height),cx=P.x*C.width,cy=(1-P.y)*C.height,z=Q.lens.magnification/100;X.save();X.beginPath();X.arc(cx,cy,r,0,Math.PI*2);X.clip();const zw=C.width/z,zh=C.height/z;X.drawImage(A,cx-zw/2,cy-zh/2,zw,zh);if(M&&!MI.complete){const o=document.createElement('canvas');o.width=M.width;o.height=M.height;const m=o.getContext('2d'),d=m.createImageData(M.width,M.height);for(let k=0;k<M.data.length;k++){d.data[k*4]=255;d.data[k*4+1]=255;d.data[k*4+2]=255;d.data[k*4+3]=M.data[k]}m.putImageData(d,0,0);const l=document.createElement('canvas');l.width=C.width;l.height=C.height;const lx=l.getContext('2d');lx.drawImage(B,cx-zw/2,cy-zh/2,zw,zh);lx.globalCompositeOperation='destination-in';lx.drawImage(o,cx-r,cy-r,r*2,r*2);X.globalAlpha=Q.lens.revealIntensity/100;X.drawImage(l,0,0)}if(MI.complete){const l=document.createElement('canvas');l.width=C.width;l.height=C.height;const lx=l.getContext('2d');lx.drawImage(B,cx-zw/2,cy-zh/2,zw,zh);lx.globalCompositeOperation='destination-in';lx.drawImage(MI,cx-r,cy-r,r*2,r*2);X.globalAlpha=Q.lens.revealIntensity/100;X.drawImage(l,0,0)}X.restore();X.strokeStyle='#b9e472';X.lineWidth=2;X.beginPath();X.arc(cx,cy,r,0,Math.PI*2);X.stroke()}requestAnimationFrame(frame)}C.onpointermove=e=>{const q=C.getBoundingClientRect();T={x:(e.clientX-q.left)/q.width,y:(e.clientY-q.top)/q.height}};function resize(){C.width=innerWidth*devicePixelRatio;C.height=innerHeight*devicePixelRatio}addEventListener('resize',resize);resize();requestAnimationFrame(frame);`;
   const parallaxRuntime = `const C=document.querySelector('canvas'),X=C.getContext('2d'),Q=window.WALLPAPER_CONFIG;let T={x:0,y:0},P={x:0,y:0},last=performance.now(),A=[];function load(){A=Q.parallax.layers.filter(l=>l.visible!==false).map(l=>{const i=new Image();i.src=l.asset;return {...l,i}})}function fit(i){const s=Math.max(C.width/i.width,C.height/i.height)*(1+Q.parallax.overscan/100),w=i.width*s,h=i.height*s;return{x:(C.width-w)/2,y:(C.height-h)/2,w,h}}function frame(t){const dt=Math.min((t-last)/1000,.1);last=t;P.x+=(T.x-P.x)*(1-Math.exp(-Math.max(1,Q.parallax.smoothing/12)*dt));P.y+=(T.y-P.y)*(1-Math.exp(-Math.max(1,Q.parallax.smoothing/12)*dt));X.clearRect(0,0,C.width,C.height);for(const l of A)if(l.i.complete){const r=fit(l.i),dx=P.x*C.width*l.depth*Q.parallax.cameraStrength/100,dy=P.y*C.height*l.depth*Q.parallax.cameraStrength/100;X.drawImage(l.i,r.x-dx,r.y+dy,r.w*l.scale,r.h*l.scale)}requestAnimationFrame(frame)}C.onpointermove=e=>{const r=C.getBoundingClientRect();T={x:(e.clientX-r.left)/r.width-.5,y:(e.clientY-r.top)/r.height-.5}};function resize(){const d=Math.min(devicePixelRatio||1,2);C.width=innerWidth*d;C.height=innerHeight*d}addEventListener('resize',resize);resize();load();requestAnimationFrame(frame);`;
@@ -111,7 +117,7 @@ function frame(t){requestAnimationFrame(frame);if(paused)return;const dt=Math.mi
 function point(e){const q=C.getBoundingClientRect();T={x:(e.clientX-q.left)/q.width,y:1-(e.clientY-q.top)/q.height};idle=performance.now()}
 C.onpointermove=point;C.onpointerdown=e=>{point(e);H=1;C.setPointerCapture(e.pointerId)};C.onpointerup=e=>{H=0;if(C.hasPointerCapture(e.pointerId))C.releasePointerCapture(e.pointerId)};C.onpointercancel=()=>H=0;
 function resize(){const d=Math.min(devicePixelRatio||1,2);C.width=Math.max(1,Math.round(innerWidth*d));C.height=Math.max(1,Math.round(innerHeight*d))}addEventListener('resize',resize);addEventListener('visibilitychange',()=>{paused=document.hidden;last=performance.now()});resize();requestAnimationFrame(frame);`;
-  const html = `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${project.title}</title><style>html,body,canvas{margin:0;width:100%;height:100%;overflow:hidden;background:#0b0d10}canvas{display:block;touch-action:none}</style></head><body><canvas></canvas><script>window.WALLPAPER_CONFIG=${JSON.stringify(config)};<\/script><script src="runtime.js"><\/script></body></html>`;
+  const html = `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${escapeHtml(project.title)}</title><style>html,body,canvas{margin:0;width:100%;height:100%;overflow:hidden;background:#0b0d10}canvas{display:block;touch-action:none}</style></head><body><canvas></canvas><script>window.WALLPAPER_CONFIG=${scriptJson(config)};<\/script><script src="runtime.js"><\/script></body></html>`;
   const projectJson = {
     title: project.title,
     description: `${project.preset.id === 'portal-reveal' ? 'Interactive Portal Reveal' : 'Interactive Difference Lens'} wallpaper generated by Motion Pair Studio.`,
@@ -134,7 +140,7 @@ function resize(){const d=Math.min(devicePixelRatio||1,2);C.width=Math.max(1,Mat
   };
   const files: Record<string, Uint8Array> = {
     'index.html': strToU8(html),
-    'runtime.js': strToU8(project.preset.id === 'portal-reveal' ? portalRuntime : project.preset.id === 'layered-parallax' ? parallaxRuntime : runtime),
+    'runtime.js': strToU8(['difference-lens','portal-reveal'].includes(project.preset.id) ? pairRuntime : project.preset.id === 'layered-parallax' ? parallaxRuntime : runtime),
     'project.json': strToU8(JSON.stringify(projectJson, null, 2)),
     'config.json': strToU8(JSON.stringify(config, null, 2)),
     [`assets/image-a.${assetExtension(project.assets.imageA)}`]: imageA,
@@ -147,6 +153,11 @@ function resize(){const d=Math.min(devicePixelRatio||1,2);C.width=Math.max(1,Mat
     'CHANGELOG.txt': strToU8(`v1.0.0\n- Initial commercial export generated by Motion Pair Studio.\n- Preset: ${project.preset.id}.\n- Offline Web Wallpaper runtime with Wallpaper Engine properties.\n`),
     'THIRD-PARTY-NOTICES.txt': strToU8('This export bundle contains generated HTML, JavaScript, JSON, and artwork assets only. No external runtime libraries or network dependencies are bundled.\n'),
   };
+  if(project.presetSettings.wardrobe){
+    files['wardrobe-qa.json']=strToU8(JSON.stringify({...project.presetSettings.wardrobe as object,commercialReady:false},null,2));
+    files['LICENSE.txt']=strToU8('WARDROBE REVIEW EXPORT. No buyer license is granted automatically. Seller must supply appropriate terms after verifying source rights and output quality.');
+    files['CHANGELOG.txt']=strToU8('Wardrobe manual-B composite review export. AI masked generation was not performed by this workspace. Device and marketplace review remain pending.');
+  }
   const fileValidationErrors = validatePackageFiles(files);
   if (fileValidationErrors.length > 0) throw new Error(`Package validation failed: ${fileValidationErrors[0]}`);
   const hashes: Record<string, string> = {};
@@ -154,6 +165,7 @@ function resize(){const d=Math.min(devicePixelRatio||1,2);C.width=Math.max(1,Mat
   const manifest = {
     manifestVersion: 1,
     packageType: 'wallpaper-engine-web',
+    ...(project.presetSettings.wardrobe?{commercialReady:false,wardrobeReview:'wardrobe-qa.json'}:{}),
     productId: config.productId,
     version: config.productVersion,
     preset: project.preset.id,
@@ -164,7 +176,7 @@ function resize(){const d=Math.min(devicePixelRatio||1,2);C.width=Math.max(1,Mat
   };
   files['manifest.json'] = strToU8(JSON.stringify(manifest, null, 2));
   files['sha256.json'] = strToU8(JSON.stringify(hashes, null, 2));
-  const zip = zipSync(files, { level: 0, mtime: new Date(0) });
+  const zip = zipSync(files, { level: 0, mtime: new Date(1980, 0, 1) });
   const blob = new Blob([zip], { type: 'application/zip' });
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement('a'); anchor.href = url; anchor.download = `${safeTitle}.zip`; anchor.click();

@@ -1,0 +1,47 @@
+import fs from 'node:fs';
+import path from 'node:path';
+import assert from 'node:assert/strict';
+import {pathToFileURL} from 'node:url';
+import {chromium} from '../../SoraSleep-Image-Dream/node_modules/playwright/index.mjs';
+
+const root=path.resolve('real-test-output/plr-11');
+const output=path.resolve('real-test-output/plr-12');
+fs.mkdirSync(output,{recursive:true});
+const runId=JSON.parse(fs.readFileSync(path.join(root,'pilot.json'))).runId;
+const manager='D:/SoraSleep Main/Manager/desktop';
+const {createPlrStore}=await import(pathToFileURL(path.join(manager,'plr-store.mjs')));
+const {createPlrApi}=await import(pathToFileURL(path.join(manager,'plr-api.mjs')));
+const api=createPlrApi({store:createPlrStore({root:path.join(root,'store')}),port:0});await api.listen();
+const base='http://127.0.0.1:'+api.server.address().port;
+let browser;
+try{
+ browser=await chromium.launch({channel:'msedge',headless:true});
+ const page=await browser.newPage({viewport:{width:1440,height:1100}}),errors=[],posts=[];
+ page.on('pageerror',error=>errors.push(error.message));
+ await page.route('http://127.0.0.1:17930/**',async route=>{const request=route.request();if(request.method()==='POST')posts.push(new URL(request.url()).pathname);try{const response=await route.fetch({url:request.url().replace('http://127.0.0.1:17930',base),timeout:180000});await route.fulfill({response});}catch{await route.abort().catch(()=>{});}});
+ await page.goto('http://127.0.0.1:5173/?studio=plr',{waitUntil:'domcontentloaded'});
+ await page.getByRole('button',{name:'Kiểm tra Manager',exact:true}).click();
+ await page.getByLabel('Open PLR run '+runId,{exact:true}).click();
+ await page.getByLabel('PLR automatic workflow',{exact:true}).waitFor();
+ await page.getByRole('button',{name:'2 · Duyệt & xuất gói',exact:true}).click();
+ await page.getByLabel('Select PLR image 1',{exact:true}).waitFor();
+ await page.getByLabel('Select PLR image 1',{exact:true}).uncheck();
+ await page.getByRole('button',{name:'1 · Chạy tự động',exact:true}).click();
+ await page.getByRole('button',{name:'2 · Duyệt & xuất gói',exact:true}).click();
+ assert.equal(await page.getByLabel('Select PLR image 1',{exact:true}).isChecked(),false);
+ await page.getByLabel('Select PLR image 1',{exact:true}).check();
+ const zip=page.getByLabel('PLR package export',{exact:true}).getByRole('link',{name:/autumn-harvest-15-clipart.*zip/}).first();
+ await zip.waitFor();
+ const response=await page.request.get((await zip.getAttribute('href')).replace('http://127.0.0.1:17930',base));assert.equal(response.status(),200);
+ await page.reload({waitUntil:'domcontentloaded'});
+ await page.getByLabel('PLR selected run',{exact:true}).waitFor();
+ await page.getByLabel('PLR automatic workflow',{exact:true}).waitFor();
+ await page.getByLabel('Search PLR collections',{exact:true}).fill('Autumn');
+ await page.getByLabel('Open PLR run '+runId,{exact:true}).waitFor();
+ await page.getByLabel('PLR selected run',{exact:true}).screenshot({path:path.join(output,'desktop.png')});
+ await page.setViewportSize({width:390,height:844});
+ await page.getByLabel('PLR workspace sections',{exact:true}).screenshot({path:path.join(output,'mobile.png')});
+ assert.deepEqual(errors,[]);assert.deepEqual(posts,[]);
+ const report={passed:true,posts,errors,reloadRestoresRun:true,unsavedSelectionSurvivesTabs:true,zipDownload:true,search:true};fs.writeFileSync(path.join(output,'ui-report.json'),JSON.stringify(report,null,2));
+ console.log(JSON.stringify(report));
+}finally{await browser?.close();await api.close();}

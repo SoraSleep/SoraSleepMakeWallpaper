@@ -8,10 +8,14 @@ type Props = {
   onContinue: () => void;
   onNew: () => void;
   onOpen: () => void;
+  onPlan: () => void;
+  onProducts: () => void;
+  onPlr:()=>void;
+  onLandscape:()=>void;onWardrobe:()=>void;
   onPreset: (id: PresetId) => void;
 };
 
-export function ProjectsPage({ project, onContinue, onNew, onOpen, onPreset }: Props) {
+export function ProjectsPage({ project, onContinue, onNew, onOpen, onPreset, onPlan, onProducts,onLandscape,onWardrobe,onPlr }: Props) {
   return <main className="hub-page">
     <header className="hub-topbar">
       <div className="hub-brand"><span><Layers3 size={19} /></span><b>Motion Pair</b><small>STUDIO</small></div>
@@ -19,7 +23,12 @@ export function ProjectsPage({ project, onContinue, onNew, onOpen, onPreset }: P
     </header>
     <section className="hub-content">
       <div className="hub-heading"><span>PROJECTS</span><h1>Build wallpapers that reward a closer look.</h1><p>Choose a saved project or start from a preset. Your work stays local until you export it.</p></div>
-      <section className="home-presets" aria-label="Default wallpaper presets"><h2>Your two default presets</h2><div className="home-preset-grid">{listDefaultPresets().map((preset) => <button key={preset.id} className="home-preset" onClick={() => onPreset(preset.id)}><span>{preset.ordinal}</span><strong>{preset.name}</strong><p>{preset.summary}</p><small>Create wallpaper</small></button>)}</div></section>
+      <section className="home-presets" aria-label="Default wallpaper presets"><h2>Chọn cách tạo sản phẩm</h2><div className="home-preset-grid">{listDefaultPresets().map((preset) => <button key={preset.id} className="home-preset" onClick={() => onPreset(preset.id)}><span>{preset.ordinal}</span><strong>{preset.name}</strong><p>{preset.summary}</p><small>Create wallpaper</small></button>)}<button className="home-preset plr-home-preset" onClick={onPlr}><span>02</span><strong>PLR Collection Studio</strong><p>Nhập file prompt có sẵn để chuẩn bị tạo bộ ảnh tĩnh hàng loạt.</p><small>Nhập danh sách prompt</small></button></div></section>
+      <a className="preset-callout" href="?studio=text-to-image"><Sparkles size={18}/><span><b>03 · Landscape Batch · Text to Image</b><small>Tạo ảnh phong cảnh tĩnh · tối đa 500 prompt · Image Dream free models.</small></span></a>
+      <button className="preset-callout" onClick={onPlan}><Sparkles size={18} /><span><b>Create from prompt · SFW</b><small>Lập kế hoạch artwork A/B với Image Dream trước khi tạo wallpaper.</small></span></button>
+      <button className="preset-callout" onClick={onProducts}><Sparkles size={18}/><span><b>Product Center</b><small>Đóng gói output, tạo ảnh listing và lưu lịch sử sản phẩm.</small></span></button>
+      <button className="preset-callout" onClick={onLandscape}><Sparkles size={18}/><span><b>Landscape Studio · Spring Sakura</b><small>Một ảnh phong cảnh, cánh hoa, vùng nước và ánh sáng có kiểm soát.</small></span></button>
+      <button className="preset-callout" onClick={onWardrobe}><Sparkles size={18}/><span><b>Wardrobe Studio · SFW</b><small>Mask trang phục, vùng bảo vệ, composite và pair QA trước khi reveal.</small></span></button>
       <article className="project-card">
         <div className="project-thumb"><img src={project.assets.imageA.source} alt="Current project thumbnail" /></div>
         <div className="project-card-copy"><span>RECENT PROJECT</span><h2>{project.title}</h2><p>{getPreset(project.preset.id).ordinal} — {getPreset(project.preset.id).name} · {project.target === 'both' ? 'Desktop + Mobile' : project.target}</p><small>Last saved locally · {new Date(project.updatedAt).toLocaleString()}</small></div>

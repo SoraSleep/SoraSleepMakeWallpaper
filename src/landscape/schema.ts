@@ -1,0 +1,13 @@
+export type LandscapeRegion={x:number;y:number;width:number;height:number};
+export type LandscapeSettings={recipe:'spring-sakura';duration:number;seed:number;petals:number;petalSize:number;waterStrength:number;lightStrength:number;reducedMotion:boolean;waterRegions:LandscapeRegion[];lightRegions:LandscapeRegion[];protectedRegions:LandscapeRegion[]};
+export type LandscapeProject={schemaVersion:1;workflowType:'landscape';title:string;image:{name:string;source:string;width:number;height:number;mimeType:string};settings:LandscapeSettings;reviewedRegions:boolean;commercialReady:false};
+export const defaultLandscapeSettings=():LandscapeSettings=>({recipe:'spring-sakura',duration:8,seed:42,petals:32,petalSize:1,waterStrength:1.5,lightStrength:.08,reducedMotion:false,waterRegions:[],lightRegions:[],protectedRegions:[]});
+export function validateLandscapeSettings(s:LandscapeSettings){
+ if(!s||s.recipe!=='spring-sakura'||!Number.isFinite(s.duration)||s.duration<4||s.duration>30||!Number.isInteger(s.seed)||s.seed<0||s.seed>2147483647||!Number.isInteger(s.petals)||s.petals<0||s.petals>120||!Number.isFinite(s.petalSize)||s.petalSize<.3||s.petalSize>3||!Number.isFinite(s.waterStrength)||s.waterStrength<0||s.waterStrength>4||!Number.isFinite(s.lightStrength)||s.lightStrength<0||s.lightStrength>.2||typeof s.reducedMotion!=='boolean')throw new Error('invalid-landscape-settings');
+ for(const regions of [s.waterRegions,s.lightRegions,s.protectedRegions]){if(!Array.isArray(regions)||regions.length>20)throw new Error('invalid-landscape-regions');for(const r of regions){if(!r||![r.x,r.y,r.width,r.height].every(Number.isFinite)||r.x<0||r.y<0||r.width<=0||r.height<=0||r.x+r.width>1.000001||r.y+r.height>1.000001)throw new Error('invalid-landscape-region');}}
+ return s;
+}
+export function parseLandscapeProject(value:unknown):LandscapeProject{
+ const p=value as LandscapeProject;if(!p||p.schemaVersion!==1||p.workflowType!=='landscape'||typeof p.title!=='string'||p.title.length>160||typeof p.reviewedRegions!=='boolean'||!p.image||typeof p.image.name!=='string'||p.image.name.length>300||!Number.isInteger(p.image.width)||!Number.isInteger(p.image.height)||p.image.width<1||p.image.height<1||p.image.width>8192||p.image.height>8192||p.image.width*p.image.height>16000000||!['image/png','image/jpeg','image/webp'].includes(p.image.mimeType)||typeof p.image.source!=='string'||p.image.source.length>34*1024*1024||!/^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/]+=*$/.test(p.image.source))throw new Error('invalid-landscape-project');
+ validateLandscapeSettings(p.settings);return{...p,commercialReady:false};
+}

@@ -60,9 +60,31 @@ export async function exportMobileVideoFallback(project: MotionPairProject, mask
     context.restore(); const glow = portal ? Number(portalSettings.glow ?? 72) / 100 : 0; context.save(); context.strokeStyle = '#b9e472'; context.lineWidth = Math.max(2, width / 900) * (1 + glow); context.shadowColor = 'rgba(185,228,114,.9)'; context.shadowBlur = portal ? 12 + 24 * glow : 0; context.beginPath(); context.arc(cx, cy, radius, 0, Math.PI * 2); context.stroke();
     if (portal && portalSettings.rippleEnabled !== false && !still) { const ripple = Number(portalSettings.ripple ?? 0) / 100; for (let ring = 0; ring < 2; ring += 1) { const ringPhase = (phase + ring * 0.5) % 1; context.globalAlpha = (1 - ringPhase) * ripple * 0.45; context.lineWidth = Math.max(1, width / 1080); context.beginPath(); context.arc(cx, cy, radius * (1 + ringPhase * 0.5), 0, Math.PI * 2); context.stroke(); } } context.restore();
   };
+  const stopped = new Promise<Blob>((resolve,reject) => {
+    recorder.onstop = () => resolve(new Blob(chunks, { type: mimeType }));
+    recorder.onerror = () => reject(new Error('Video recorder failed.'));
+  });
+  void stopped.catch(() => {});
+  let renderTimer: number | undefined;
+  try {
   recorder.start();
-  await new Promise<void>((resolve, reject) => { const timer = window.setInterval(() => { if (signal?.aborted) { window.clearInterval(timer); recorder.stop(); reject(new DOMException('Export cancelled', 'AbortError')); return; } draw(); index += 1; onProgress?.(index / total); if (index >= total) { window.clearInterval(timer); recorder.stop(); resolve(); } }, 1000 / fps); });
-  const blob = await new Promise<Blob>((resolve) => { recorder.onstop = () => resolve(new Blob(chunks, { type: mimeType })); });
+  await new Promise<void>((resolve, reject) => {
+    stopped.catch(reject);
+    renderTimer = window.setInterval(() => {
+      try {
+        if (signal?.aborted) throw new DOMException('Export cancelled', 'AbortError');
+        draw(); index++; onProgress?.(index / total);
+        if(index>=total){window.clearInterval(renderTimer);recorder.stop();resolve();}
+      } catch(error){window.clearInterval(renderTimer);reject(error);}
+    },1000/fps);
+  });
+  const blob = await stopped;
   const url = URL.createObjectURL(blob); const anchor = document.createElement('a'); anchor.href = url; anchor.download = `${project.title.toLowerCase().replace(/[^a-z0-9]+/g, '-') || 'mobile-wallpaper'}-${width}x${height}.webm`; anchor.click(); setTimeout(() => URL.revokeObjectURL(url), 0);
   return { bytes: blob.size, format: 'webm' as const, blob };
+  } finally {
+    if (renderTimer !== undefined) window.clearInterval(renderTimer);
+    if (recorder.state !== 'inactive') recorder.stop();
+    stream.getTracks().forEach(track => track.stop());
+    void stopped.catch(() => {});
+  }
 }
