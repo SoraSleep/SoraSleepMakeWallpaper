@@ -1,5 +1,5 @@
 import fs from 'node:fs';import path from 'node:path';import assert from 'node:assert/strict';import {createHash} from 'node:crypto';import {pathToFileURL} from 'node:url';import {chromium} from '../../SoraSleep-Image-Dream/node_modules/playwright/index.mjs';
-const out=path.resolve('real-test-output/text-to-image-b3');fs.mkdirSync(out,{recursive:true});const manager='D:/SoraSleep Main/Manager/desktop',root=path.resolve('real-test-output/text-to-image-b2/store'),runId=JSON.parse(fs.readFileSync('real-test-output/text-to-image-b2/pilot.json')).runId;
+const out=path.resolve('real-test-output/text-to-image-b3');fs.mkdirSync(out,{recursive:true});const manager=(process.env.SORASLEEP_MANAGER_DESKTOP??path.resolve('integrations/manager-desktop')),root=path.resolve('real-test-output/text-to-image-b2/store'),runId=JSON.parse(fs.readFileSync('real-test-output/text-to-image-b2/pilot.json')).runId;
 // Establish the precondition on every run, including after an interrupted test.
 const selectionPath=path.join(root,runId,'gallery-selection.json');
 if(fs.existsSync(selectionPath)){const selection=JSON.parse(fs.readFileSync(selectionPath));const stateFiles=fs.readdirSync(path.join(root,runId,'artifacts'));selection.itemIds=stateFiles;selection.revision++;fs.writeFileSync(selectionPath,JSON.stringify(selection));}

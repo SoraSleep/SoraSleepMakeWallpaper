@@ -1,0 +1,2 @@
+import test from 'node:test';import assert from 'node:assert/strict';import {providerResponse} from './provider-response.mjs';
+test('provider conflict retains actionable first-line reason without exposing URL query',async()=>{await assert.rejects(providerResponse(Response.json({error:'Chưa có profile phù hợp https://provider.invalid/?secret=private\nstack line'},{status:409})),error=>error.httpStatus===409&&error.message.includes('Chưa có profile phù hợp')&&!error.message.includes('private')&&!error.message.includes('stack line'));});

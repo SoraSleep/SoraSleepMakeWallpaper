@@ -4,6 +4,13 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
+    "runtime:check": "node scripts/runtime-check.mjs",
+    "studio:start": "node scripts/studio-launch.mjs",
+    "build:portable": "npm run build && node scripts/package-portable.mjs",
+    "test:portable": "node scripts/portable-smoke.mjs",
+    "test:landscape-upgrade": "node scripts/landscape-upgrade-acceptance.mjs",
+    "test:manager-integration": "node --test integrations/manager-desktop/*.test.mjs",
+    "test:portable-runtime": "node --test scripts/runtime-config.test.mjs scripts/project-mirror.test.mjs",
     "test:t2i-contract": "node --experimental-strip-types --test text-to-image-contract.test.mjs",
     "test:t2i-b2-live": "node scripts/text-to-image-b2-live.mjs",
     "test:t2i-gallery": "node scripts/text-to-image-b3-ui.mjs && node scripts/text-to-image-b3-scale-ui.mjs",

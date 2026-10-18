@@ -1,5 +1,6 @@
+import {managerBase} from '../app/runtime';
 import { useEffect, useState } from "react";
-const base = "http://127.0.0.1:17930/landscape-batches";
+const base = (managerBase+"/landscape-batches");
 type Pack = {
   key: string;
   title: string;
@@ -29,6 +30,7 @@ export function BatchExportPanel({
     [title, setTitle] = useState(""),
     [limit, setLimit] = useState(100),
     [includePrompts, setIncludePrompts] = useState(false),
+    [variant,setVariant]=useState('original'),
     [packs, setPacks] = useState<Pack[]>([]),
     [busy, setBusy] = useState(false),
     [error, setError] = useState("");
@@ -49,6 +51,11 @@ export function BatchExportPanel({
     setBusy(true);
     setError("");
     try {
+      if(variant!=='original'){
+        const response=await fetch((managerBase+"/capabilities"));
+        const capability=await response.json();
+        if(!response.ok||capability.reviewedVariants!==true)throw Error('Backend chưa hỗ trợ xuất bản đã duyệt. Cập nhật hoặc khởi động lại Manager helper.');
+      }
       const response = await fetch(base + "/" + runId + "/exports", {
           method: "POST",
           headers: {
@@ -57,6 +64,7 @@ export function BatchExportPanel({
           },
           body: JSON.stringify({
             mode,
+            variant,
             ...(title.trim() ? { title: title.trim() } : {}),
             maxPartBytes: limit * 1000000,
             includePrompts,
@@ -72,7 +80,13 @@ export function BatchExportPanel({
     } catch (e) {
       const message = e instanceof Error ? e.message : String(e);
       setError(
-        message.includes("quality-review-required")
+        message.includes('quality-busy')
+          ? 'Một lượt QA đang chạy. Chờ hoàn tất hoặc hủy lượt đó rồi xuất lại.'
+          : message.includes('quality-stale')
+          ? 'Ảnh đã thay đổi sau QA. Kiểm tra lại rồi xuất lại.'
+          : message.includes('reviewed-image-required')
+          ? 'Còn ảnh chưa có PNG đã duyệt. Nhập đủ bản duyệt hoặc đổi sang xuất ảnh gốc.'
+          : message.includes("quality-review-required")
           ? "QA phát hiện ảnh lỗi hoặc trùng trong phạm vi xuất. Kiểm tra và bỏ chọn ảnh có cảnh báo, lưu lựa chọn rồi xuất lại."
           : message.includes("export-cancelled")
           ? "Đã hủy xuất ZIP, ảnh nguồn được giữ nguyên."
@@ -94,6 +108,7 @@ export function BatchExportPanel({
         đủ mọi phần để nhận đủ ảnh.
       </p>
       <fieldset disabled={busy} className="plr-pair">
+        <label>Phiên bản ảnh<select aria-label="Landscape export variant" value={variant} onChange={e=>setVariant(e.target.value)}><option value="original">Ảnh gốc</option><option value="reviewed">PNG đã duyệt · bắt buộc đủ</option><option value="both">Cả ảnh gốc và PNG đã duyệt</option></select></label>
         <label>
           Phạm vi
           <select
@@ -187,10 +202,10 @@ export function BatchExportPanel({
       {packs.map((pack) => (
         <article className="plr-pack-result" key={pack.key}>
           <h4>
-            {pack.title} · {pack.included} ảnh
+            {pack.title} · {pack.included} tệp ảnh
           </h4>
           <p>
-            {pack.included}/{pack.total} ảnh được đưa vào gói · {pack.missing}{" "}
+            {pack.included} tệp ảnh từ batch {pack.total} prompt · {pack.missing}{" "}
             prompt chưa có ảnh · {pack.omitted} ảnh đã tải không được chọn.{" "}
             {pack.includePrompts
               ? "Có kèm prompt gốc."

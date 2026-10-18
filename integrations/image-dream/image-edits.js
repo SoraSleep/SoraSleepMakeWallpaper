@@ -6,7 +6,7 @@ function sourceFile(root,name){
 }
 function processImage(file,rect,options={},timeout=60000){if(typeof options==='number'){timeout=options;options={};}return new Promise((resolve,reject)=>{
  const directory=__dirname.replace(/app\.asar([\\/])/, 'app.asar.unpacked$1');
- const worker=new Worker(path.join(directory,'image-edit-worker.js'),{workerData:{file,rect,method:options.method,radius:options.radius}});let settled=false;
+ const worker=new Worker(path.join(directory,'image-edit-worker.js'),{workerData:{file,rect,method:options.method,radius:options.radius,maskPng:options.maskPng,dependenciesPackage:options.dependenciesPackage}});let settled=false;
  const finish=(error,result)=>{if(settled)return;settled=true;clearTimeout(timer);worker.terminate();error?reject(error):resolve(result);};
  const timer=setTimeout(()=>finish(new Error('Chỉnh ảnh quá thời gian; ảnh gốc không bị thay đổi.')),timeout);
  worker.on('message',message=>message.ok?finish(null,message):finish(new Error(message.error)));worker.on('error',e=>finish(e));worker.on('exit',()=>{if(!settled)finish(new Error('Worker dừng trước khi có kết quả.'));});
@@ -18,7 +18,7 @@ function registerImageEdits(app,{downloads,exports,loadMeta,saveMeta}){
   let sameOrigin=true;try{if(req.headers.origin)sameOrigin=new URL(req.headers.origin).host===req.headers.host;}catch{sameOrigin=false;}
   if(!local||!sameOrigin)return res.status(403).json({error:'Chỉnh ảnh chỉ cho phép giao diện local cùng nguồn.'});next();
  });
- app.get('/api/image-edits/status',(_req,res)=>res.json({available:true,engine:'opencv',methods:['ns','telea'],defaultMethod:'ns',radius:[1,7],aiModel:false,busy,maxMaskArea:.05,retainsAIProvenance:true}));
+ app.get('/api/image-edits/status',(_req,res)=>res.json({available:true,engine:'opencv',customMask:true,methods:['ns','telea'],defaultMethod:'ns',radius:[1,7],aiModel:false,busy,maxMaskArea:.05,retainsAIProvenance:true}));
  app.post('/api/image-edits/preview',async(req,res)=>{
   if(busy)return res.status(409).json({error:'Đang xử lý ảnh khác.'});
   if(req.body.confirmRights!==true)return res.status(400).json({error:'Cần xác nhận quyền chỉnh sửa ảnh.'});
@@ -28,9 +28,10 @@ function registerImageEdits(app,{downloads,exports,loadMeta,saveMeta}){
    if(!rect||!['x','y','width','height'].every(k=>Number.isInteger(rect[k])))throw new Error('Vùng chọn không hợp lệ.');
    for(const [id,job] of jobs)if(job.expires<Date.now()){fs.rmSync(job.preview,{force:true});jobs.delete(id);}
    if(jobs.size>=10)throw new Error('Có quá nhiều bản xem trước; thử lại sau 10 phút.');
-   const hash=crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex');const result=await processImage(file,rect,{method,radius});
+   const maskPng=req.body.maskPng;if(maskPng!==undefined&&(typeof maskPng!=='string'||maskPng.length>2000000||!/^[A-Za-z0-9+/=]+$/.test(maskPng)))throw Error('Mask PNG không hợp lệ hoặc quá lớn.');
+   const hash=crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex');const result=await processImage(file,rect,{method,radius,maskPng});
    const id=crypto.randomUUID();const dir=path.join(exports,'ImageEdits');fs.mkdirSync(dir,{recursive:true});const preview=path.join(dir,`${id}.png`);fs.writeFileSync(preview,Buffer.from(result.png));
-   jobs.set(id,{preview,source:req.body.fileName,sourceHash:hash,rect,method,radius,width:result.width,height:result.height,expires:Date.now()+600000});
+   jobs.set(id,{preview,source:req.body.fileName,sourceHash:hash,rect:result.maskBounds??rect,method,radius,maskedPixels:result.maskedPixels,maskType:maskPng?'painted':'rectangle',maskSha256:maskPng?crypto.createHash('sha256').update(Buffer.from(maskPng,'base64')).digest('hex'):null,width:result.width,height:result.height,expires:Date.now()+600000});
    res.json({id,url:`/api/image-edits/${id}/preview`,width:result.width,height:result.height,engine:`opencv-${method}`,method,radius,warning:'Chỉ chỉnh vùng nhìn thấy; ảnh vẫn có nguồn gốc AI. Kiểm tra chất lượng trước khi lưu.'});
   }catch(e){res.status(400).json({error:e.message});}finally{busy=false;}
  });
@@ -44,7 +45,7 @@ function registerImageEdits(app,{downloads,exports,loadMeta,saveMeta}){
    const fileName=`edited_${path.parse(job.source).name.slice(0,65)}_${req.params.id}.png`;const destination=path.join(downloads,fileName);
    fs.copyFileSync(job.preview,destination+'.pending',fs.constants.COPYFILE_EXCL);fs.renameSync(destination+'.pending',destination);
    const meta=loadMeta();meta[fileName]={...meta[job.source],fileName,width:job.width,height:job.height,aspectRatio:meta[job.source]?.aspectRatio||(job.width===job.height?'1:1':`${job.width}:${job.height}`),downloadSource:'local_edit',aiGenerated:true,rightsStatus:'unreviewed',
-    sourceAssetId:job.source,sourceHash:job.sourceHash,editOperation:'region-inpaint',editEngine:`opencv-${job.method}`,editMethod:job.method,editRadius:job.radius,editMask:job.rect,editedAt:Date.now(),watermarkStatus:'user-reviewed-visible-region',commercialRightsVerified:false};
+    sourceAssetId:job.source,sourceHash:job.sourceHash,editOperation:'region-inpaint',editEngine:`opencv-${job.method}`,editMethod:job.method,editRadius:job.radius,editMask:job.rect,editMaskPixels:job.maskedPixels,editMaskType:job.maskType,editMaskSha256:job.maskSha256,editedAt:Date.now(),watermarkStatus:'user-reviewed-visible-region',commercialRightsVerified:false};
    try{saveMeta(meta);}catch(e){fs.rmSync(destination,{force:true});throw e;}
    job.saved=fileName;res.json({ok:true,fileName});
   }catch(e){res.status(400).json({error:e.message});}

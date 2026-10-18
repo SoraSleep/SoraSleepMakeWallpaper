@@ -1,6 +1,7 @@
+import {managerBase} from '../app/runtime';
 import {PackagePanel} from './PackagePanel';
 import {useEffect,useState} from 'react';
-const base='http://127.0.0.1:17930';
+const base=managerBase;
 type Item={itemId:string;ordinal:number;width?:number;height?:number;blockers:string[];warnings:string[];exactDuplicateOf:string|null;nearDuplicates:Array<{itemId:string}>;suggested:boolean};
 type Report={fingerprint:string;summary:{total:number;blocked:number;exactDuplicates:number;nearDuplicateItems:number;suggested:number};items:Item[];selection:{fingerprint:string;revision:number;itemIds:string[]}|null};
 const labels:Record<string,string>={'processing-required':'Chưa xử lý nguồn','master-missing-or-changed':'File master thiếu hoặc đã thay đổi','native-short-side-below-512':'Cạnh ngắn dưới 512 px','aspect-mismatch':'Sai tỷ lệ yêu cầu','transparent-png-required':'Chưa có PNG trong suốt hợp lệ','subject-touches-canvas-edge':'Chủ thể chạm mép ảnh','very-little-transparent-background':'Phần nền trong suốt quá ít','very-small-foreground':'Chủ thể quá nhỏ','visual-review-required':'Cần xem chất lượng hình ảnh'};

@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import {randomUUID} from 'node:crypto';
 import {pathToFileURL} from 'node:url';
 const out=path.resolve('real-test-output/release-2026-10-18');fs.mkdirSync(out,{recursive:true});
-const moduleAt=name=>import(pathToFileURL('D:/SoraSleep Main/Manager/desktop/'+name));
+const moduleAt=name=>import(pathToFileURL((process.env.SORASLEEP_MANAGER_DESKTOP??path.resolve('integrations/manager-desktop'))+'/'+name));
 const {createPlrStore}=await moduleAt('plr-store.mjs'),{createPlrPreflight}=await moduleAt('plr-preflight.mjs'),{createPlrDispatcher}=await moduleAt('plr-dispatcher.mjs'),{createLandscapeGallery}=await moduleAt('landscape-gallery.mjs'),{createLandscapeExporter}=await moduleAt('landscape-export.mjs'),{createLandscapeQuality}=await moduleAt('landscape-quality.mjs');
 const store=createPlrStore({root:path.join(out,'store')}),preflight=createPlrPreflight({store}),dispatcher=createPlrDispatcher({store});
 const file=path.join(out,'pilot.json'),pilot=fs.existsSync(file)?JSON.parse(fs.readFileSync(file)):{};

@@ -1,8 +1,9 @@
 import {createProfileStudioClient} from './profile-studio-client.mjs';
+import {providerResponse} from './provider-response.mjs';
 export function createPlrPreflight({store,baseUrl='http://127.0.0.1:17897',fetchImpl=fetch,now=()=>Date.now()}){
  const base=new URL(baseUrl);if(base.protocol!=='http:'||!['127.0.0.1','localhost','[::1]'].includes(base.hostname)||base.username||base.password||base.pathname!=='/')throw Error('plr-image-dream-loopback-required');
  let busy=false;
- const call=async(route,body)=>{const response=await fetchImpl(new URL(route,base),{method:body===undefined?'GET':'POST',headers:{'Content-Type':'application/json'},...(body===undefined?{}:{body:JSON.stringify(body)}),signal:AbortSignal.timeout(body?120000:15000)});if(!response.ok)throw Error('plr-image-dream-http-'+response.status);return response.json();};
+ const call=async(route,body)=>{const response=await fetchImpl(new URL(route,base),{method:body===undefined?'GET':'POST',headers:{'Content-Type':'application/json'},...(body===undefined?{}:{body:JSON.stringify(body)}),signal:AbortSignal.timeout(body?120000:15000)});return providerResponse(response);};
  const client=createProfileStudioClient(call,base.origin);
  async function capabilities(){
   const [health,raw,profile]=await Promise.all([call('/api/health'),call('/api/models'),call('/api/profiles/status')]);

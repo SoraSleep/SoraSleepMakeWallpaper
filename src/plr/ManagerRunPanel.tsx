@@ -1,9 +1,10 @@
+import {managerBase} from '../app/runtime';
 import {WorkflowPanel} from './WorkflowPanel';
 import {QualityPanel} from './QualityPanel';
 import {useEffect,useRef,useState} from 'react';
 import type {PromptRow} from './promptFile';
 import type {ProductKind,Delivery} from './productionRecipe';
-const base='http://127.0.0.1:17930';
+const base=managerBase;
 type Run={id:string;title:string;totalRows:number;selectedRows?:number};
 type Model={id:string;name:string;ratios:string[];resolutions:string[]};
 type Quote={reservedCredits?:number;remainingBudget?:number;perTask:number;remainingRows:number;estimatedCredits:number;maxCredits:number;budgetCoversEstimate:boolean;expiresAt:number;generationRequests:number};

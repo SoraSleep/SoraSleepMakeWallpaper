@@ -1,5 +1,6 @@
+import {managerBase} from '../app/runtime';
 import {useEffect,useState} from 'react';
-const base='http://127.0.0.1:17930';
+const base=managerBase;
 type Progress={total:number;eligible:number;excluded:number;processed:number;states:Record<string,number>;creditsReserved:number;maxCredits:number;rows:Array<{itemId:string;ordinal:number;status:string;revision:number;selected:boolean;attempts:number;error:string|null;exclusion?:{reason:string}|null}>};
 type State={progress?:Progress;timings?:Record<string,{lastDurationMs:number}>;status:string;active?:boolean;stage?:string;error?:string|null;selected?:number;excluded?:number;packKey?:string;completed?:Record<string,boolean>;config?:{title:string;licenseText:string;maxPartBytes:number;trimTransparent?:boolean}};
 const stages:Record<string,string>={generation:'Tạo ảnh',processing:'Xử lý ảnh',quality:'Kiểm tra collection',selection:'Chọn ảnh',package:'Đóng ZIP',completed:'Đã xuất gói nháp'};

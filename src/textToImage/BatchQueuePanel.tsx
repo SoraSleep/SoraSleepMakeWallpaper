@@ -1,8 +1,9 @@
+import {managerBase} from '../app/runtime';
 import {useEffect,useRef,useState} from 'react';
 import type {Config} from './FreeModelPanel';
 import type {PromptRow} from '../plr/promptFile';
 import {BatchGallery} from './BatchGallery';
-const base='http://127.0.0.1:17930/landscape-batches',lastKey='sorasleep-landscape-batch-last-v1';
+const base=(managerBase+"/landscape-batches"),lastKey='sorasleep-landscape-batch-last-v1';
 type Quote={perTask:number;estimatedCredits:number;reservedCredits:number;remainingBudget:number;budgetCoversEstimate:boolean;expiresAt:number};
 type Snapshot={executorBusy:boolean;run:{id:string;title:string;preset:Config&{maxCredits:number};itemIds:string[]};state:{status:string;error?:string;preflight?:Quote};counts:Record<string,number>;items:Array<{id:string;ordinal:number;rawPrompt:string;status:string;attempts:Array<{artifact?:{width:number;height:number}}>}>};
 async function call(route:string,body?:unknown){const response=await fetch(base+route,{method:body===undefined?'GET':'POST',headers:body===undefined?{}:{'Content-Type':'application/json','X-SoraSleep-Bridge':'1'},...(body===undefined?{}:{body:JSON.stringify(body)}),signal:AbortSignal.timeout(180000)});const value=await response.json();if(!response.ok)throw Error(value.error||'Batch HTTP '+response.status);return value;}

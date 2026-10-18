@@ -1,4 +1,5 @@
 import {createProfileStudioClient} from './profile-studio-client.mjs';
+import {providerResponse} from './provider-response.mjs';
 import {createPlrPreflight} from './plr-preflight.mjs';
 import {createHash,randomUUID} from 'node:crypto';
 import {writeFileSync,renameSync,existsSync,unlinkSync} from 'node:fs';
@@ -12,7 +13,7 @@ export async function decodePlrImage(file){
 }
 export function createPlrDispatcher({store,baseUrl='http://127.0.0.1:17897',fetchImpl=fetch,pollMs=3000,maxPolls=120,decode=decodePlrImage,sleep=wait,isExternalBusy=()=>false,canSegment=()=>false}){
  const base=new URL(baseUrl),preflight=createPlrPreflight({store,baseUrl,fetchImpl});let active=null,stopping=false;const tasks=new Map();
- const call=async(route,body)=>{const response=await fetchImpl(new URL(route,base),{method:body===undefined?'GET':'POST',headers:{'Content-Type':'application/json'},...(body===undefined?{}:{body:JSON.stringify(body)}),signal:AbortSignal.timeout(body?180000:20000)});if(!response.ok)throw Error('plr-image-dream-http-'+response.status);return response.json();};
+ const call=async(route,body)=>{const response=await fetchImpl(new URL(route,base),{method:body===undefined?'GET':'POST',headers:{'Content-Type':'application/json'},...(body===undefined?{}:{body:JSON.stringify(body)}),signal:AbortSignal.timeout(body?180000:20000)});return providerResponse(response);};
  const client=createProfileStudioClient(call,base.origin);
  async function waitForIdle(id){
   for(let n=0;n<30;n++){

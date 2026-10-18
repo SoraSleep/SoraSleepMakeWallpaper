@@ -6,7 +6,8 @@ export function createLandscapeImageEdits({baseUrl='http://127.0.0.1:17897',fetc
  async function preview(input){
   const asset=(await assets()).find(item=>item.assetId===input.assetId);if(!asset)throw Error('image-edit-source-not-found');
   const rect=input.rect;if(!rect||!['x','y','width','height'].every(key=>Number.isSafeInteger(rect[key]))||rect.x<0||rect.y<0||rect.width<1||rect.height<1||rect.x+rect.width>asset.width||rect.y+rect.height>asset.height||rect.width*rect.height>asset.width*asset.height*.05)throw Error('image-edit-region-invalid');
-  const value=await call('/api/image-edits/preview',{fileName:asset.fileName,rect,confirmRights:true});
+  if(input.maskPng&&(await call('/api/image-edits/status')).customMask!==true)throw Error('image-edit-custom-mask-needs-provider-update');
+  const value=await call('/api/image-edits/preview',{fileName:asset.fileName,rect,confirmRights:true,method:input.method,radius:input.radius,...(input.maskPng?{maskPng:input.maskPng}:{})});
   if(!/^[a-f0-9-]{36}$/.test(value.id))throw Error('image-edit-job-invalid');
   jobs.set(value.id,{source:asset,rect,expires:Date.now()+600000});
   return{id:value.id,width:value.width,height:value.height,engine:value.engine,previewUrl:'/landscape-edits/'+value.id+'/preview',source:asset,rect};
@@ -16,5 +17,5 @@ export function createLandscapeImageEdits({baseUrl='http://127.0.0.1:17897',fetc
  async function save(id,input){const value=job(id);if(input.reviewed!==true)throw Error('image-edit-review-required');const result=await call('/api/image-edits/'+id+'/save',{confirmRights:true,reviewed:true});const asset=(await assets()).find(item=>item.fileName===result.fileName);if(!asset)throw Error('image-edit-saved-asset-not-found');value.saved=asset;return{...asset,source:value.source,rect:value.rect,aiGenerated:true,downloadUrl:'/landscape-edits/'+id+'/download'};}
  async function download(id){const asset=job(id).saved;if(!asset)throw Error('image-edit-save-first');const response=await fetchImpl(new URL('/downloads/'+encodeURIComponent(asset.fileName),base),{signal:AbortSignal.timeout(30000)});if(!response.ok)throw Error('image-edit-download-failed');return{bytes:Buffer.from(await response.arrayBuffer()),fileName:asset.fileName};}
  async function source(assetId){const asset=(await assets()).find(item=>item.assetId===assetId);if(!asset)throw Error('image-edit-source-not-found');const response=await fetchImpl(new URL('/downloads/'+encodeURIComponent(asset.fileName),base),{signal:AbortSignal.timeout(30000)});if(!response.ok)throw Error('image-edit-source-unavailable');return{bytes:Buffer.from(await response.arrayBuffer()),mime:response.headers.get('content-type')||'application/octet-stream'};}
- return{assets,preview,image,save,download,source};
+ return{assets,preview,image,save,download,source,status:()=>call('/api/image-edits/status')};
 }

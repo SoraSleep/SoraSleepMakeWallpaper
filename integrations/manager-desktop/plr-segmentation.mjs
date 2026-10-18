@@ -1,7 +1,7 @@
 import {spawn} from 'node:child_process';
 import {existsSync} from 'node:fs';import path from 'node:path';import {fileURLToPath} from 'node:url';
-const python=process.env.SORASLEEP_PLR_PYTHON||'D:/SoraSleep Main/Runtime/Python/plr/Scripts/python.exe';
-const models=process.env.SORASLEEP_PLR_MODELS||'D:/SoraSleep Main/Runtime/Models/PLR';
+const python=process.env.SORASLEEP_PLR_PYTHON||'python';
+const models=process.env.SORASLEEP_PLR_MODELS||path.resolve('runtime/models/plr');
 export const segmentationRecipe='birefnet-general-lite-rembg-2.0.67-v1';
 export function segmentationAvailable(){return existsSync(python)&&existsSync(path.join(models,'birefnet-general-lite.onnx'));}
 export function createSegmentationWorker(){

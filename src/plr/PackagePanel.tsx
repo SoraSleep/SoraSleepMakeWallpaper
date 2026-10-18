@@ -1,5 +1,6 @@
+import {managerBase} from '../app/runtime';
 import {useEffect,useState} from 'react';
-const base='http://127.0.0.1:17930';
+const base=managerBase;
 type Pack={key:string;title:string;totalImages:number;selectionRevision:number;fingerprint:string;createdAt:string;trimTransparent?:boolean;files:Array<{file:string;bytes:number;sha256:string}>};
 type Listing={key:string;title:string;description:string;tags:string[];files:Array<{file:string;bytes:number}>;sellerReviewRequired:boolean};
 export function PackagePanel({runId,title:initialTitle,fingerprint,revision,count}:{runId:string;title:string;fingerprint:string;revision:number;count:number}){

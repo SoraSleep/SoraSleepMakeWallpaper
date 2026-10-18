@@ -1,8 +1,10 @@
+import {managerBase} from '../app/runtime';
 import { useEffect, useRef, useState } from "react";
 import "./gallery.css";
 import { BatchExportPanel } from "./BatchExportPanel";
 import {BatchQualityPanel} from './BatchQualityPanel';
-const base = "http://127.0.0.1:17930";
+import {BatchDerivativePanel,type ReviewedImage} from './BatchDerivativePanel';
+const base = managerBase;
 type Item = {
   id: string;
   ordinal: number;
@@ -11,6 +13,8 @@ type Item = {
   group: string;
   status: string;
   selected: boolean;
+  sha256?:string;
+  reviewed?:ReviewedImage|null;
   width?: number;
   height?: number;
   bytes?: number;
@@ -305,6 +309,7 @@ export function BatchGallery({
                   : item.status}
               </small>
               <p>{item.prompt}</p>
+              {item.sourceUrl&&item.sha256&&<BatchDerivativePanel runId={runId} itemId={item.id} sourceSha256={item.sha256} reviewed={item.reviewed} onSaved={()=>setVersion(value=>value+1)}/>}
               {item.sourceUrl && (
                 <a href={base + item.sourceUrl + "?download=1"} download>
                   Tải ảnh gốc #{item.ordinal}

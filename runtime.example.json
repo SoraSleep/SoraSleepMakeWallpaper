@@ -1,0 +1,7 @@
+{
+  "dataRoot": "./data/PLRRuns",
+  "imageDreamUrl": "http://127.0.0.1:17897",
+  "port": 17930,
+  "python": "./runtime/python/python.exe",
+  "models": "./runtime/models/plr"
+}
