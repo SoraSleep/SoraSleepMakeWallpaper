@@ -1,8 +1,8 @@
-import {PlrStudio} from './plr/PlrStudio';
-import {TextToImageStudio} from './textToImage/TextToImageStudio';
-import {WardrobeStudio} from './wardrobe/WardrobeStudio';
-import {LandscapeStudio} from './landscape/LandscapeStudio';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
+const PlrStudio=lazy(()=>import('./plr/PlrStudio').then(module=>({default:module.PlrStudio})));
+const TextToImageStudio=lazy(()=>import('./textToImage/TextToImageStudio').then(module=>({default:module.TextToImageStudio})));
+const WardrobeStudio=lazy(()=>import('./wardrobe/WardrobeStudio').then(module=>({default:module.WardrobeStudio})));
+const LandscapeStudio=lazy(()=>import('./landscape/LandscapeStudio').then(module=>({default:module.LandscapeStudio})));
 import {
   AlignCenter,
   ArrowLeftRight,
@@ -1100,4 +1100,4 @@ function RightsField({
   );
 }
 
-export default App;
+export default function Application(){return <Suspense fallback={<main className="hub-page"><p role="status">Đang mở studio…</p></main>}><App/></Suspense>;}

@@ -14,7 +14,18 @@ export function BatchQueuePanel({rows,filename,config}:{rows:PromptRow[];filenam
  async function open(id:string){const value=await refresh(id,0);setPage(0);localStorage.setItem(lastKey,id);setNotice('Đã mở batch '+value.run.title+'. Cấu hình và prompt được giữ theo bản đã lưu.');}
  async function perform(action:()=>Promise<void>){setBusy(true);setError('');try{await action();}catch(e){setError(e instanceof Error?e.message:String(e));}finally{setBusy(false);}}
  useEffect(()=>{let active=true;void call('').then(async value=>{if(!active)return;setRuns(value.runs);const id=localStorage.getItem(lastKey);if(id&&value.runs.some((run:{id:string})=>run.id===id)){const snapshot=await call('/'+id+'?limit=50');if(active)setSaved(snapshot);}}).catch(()=>{});return()=>{active=false;};},[]);
- useEffect(()=>{if(!saved)return;let active=true;const id=saved.run.id;const timer=setInterval(()=>{void call('/'+id+'?offset='+page*50+'&limit=50').then(value=>{if(active){setSaved(value);setPollError('');}}).catch(()=>{if(active)setPollError('Mất kết nối cập nhật tiến độ. Giữ batch hiện tại; kết nối lại để tiếp tục hoặc đối soát task.');});},2500);return()=>{active=false;clearInterval(timer);};},[saved?.run.id,page]);
+ const complete=!!saved&&saved.run.itemIds.length===(saved.counts.needs_review??0);
+ useEffect(()=>{
+  if(!saved||complete)return;
+  const controller=new AbortController(),id=saved.run.id;let timer:ReturnType<typeof setTimeout>|undefined;
+  async function poll(){
+   try{const response=await fetch(base+'/'+id+'?offset='+page*50+'&limit=50',{signal:AbortSignal.any([controller.signal,AbortSignal.timeout(15000)])});const value=await response.json();if(!response.ok)throw Error(value.error);if(!controller.signal.aborted){setSaved(value);setPollError('');}}
+   catch{if(!controller.signal.aborted)setPollError('Mất kết nối cập nhật tiến độ. Giữ batch hiện tại; kết nối lại để tiếp tục hoặc đối soát task.');}
+   finally{if(!controller.signal.aborted)timer=setTimeout(poll,document.hidden?15000:2500);}
+  }
+  timer=setTimeout(poll,document.hidden?15000:2500);
+  return()=>{controller.abort();clearTimeout(timer);};
+ },[saved?.run.id,page,complete]);
  async function create(){if(!config||!rows.length||rows.length>500)throw Error('Cần 1–500 prompt và cấu hình free đã xác minh.');const input={title:filename.replace(/\.[^.]+$/,'').slice(0,160)||'Landscape batch',filename,skipDuplicates:false,rows,preset:{...config,studio:'text-to-image-landscape',productKind:'background-art',imageCount:1,maxCredits:budget,maxRegenerations:0,promptPolicy:'verbatim'}};const hash=JSON.stringify(input);if(pending.current?.hash!==hash)pending.current={hash,key:crypto.randomUUID()};const result=await call('',{...input,requestKey:pending.current.key});await open(result.id);await list();}
  async function control(action:string){if(!saved)return;await call('/'+saved.run.id+'/'+action,{});await refresh(saved.run.id);setNotice(action==='pause'?'Đã yêu cầu tạm dừng, giữ task hiện tại để tiếp tục.':action==='preflight'?'Đã lấy dự toán từ Image Dream.':'Đã gửi lệnh '+action+'.');}
  const quote=saved?.state.preflight,unresolved=(saved?.counts.submission_uncertain??0)+(saved?.counts.dispatching??0),finished=!!saved&&saved.run.itemIds.length===(saved.counts.needs_review??0),canStart=!!saved&&!pollError&&!saved.executorBusy&&!finished&&!unresolved&&!(saved.counts.failed??0)&&((saved.counts.submitted??0)>0||(!!quote?.budgetCoversEstimate&&quote.expiresAt>Date.now()));
