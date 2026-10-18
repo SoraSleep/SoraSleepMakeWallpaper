@@ -16,11 +16,12 @@ export function runDifferenceJob(
   onProgress: (stage: string, progress: number) => void,
 ) {
   return new Promise<DifferenceResult>((resolve, reject) => {
+    if (signal.aborted) { reject(new DOMException('Difference analysis cancelled.', 'AbortError')); return; }
     const id = globalThis.crypto?.randomUUID?.() ?? `difference-${Date.now()}`;
     const worker = new Worker(new URL('./difference.worker.ts', import.meta.url), { type: 'module' });
     const abort = () => { worker.terminate(); reject(new DOMException('Difference analysis cancelled.', 'AbortError')); };
     signal.addEventListener('abort', abort, { once: true });
-    worker.onerror = () => { worker.terminate(); reject(new Error('Difference worker failed.')); };
+    worker.onerror = () => { signal.removeEventListener('abort', abort); worker.terminate(); reject(new Error('Difference worker failed.')); };
     worker.onmessage = ({ data }) => {
       if (data.id !== id) return;
       if (data.type === 'progress') { onProgress(data.stage, data.progress); return; }

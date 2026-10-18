@@ -184,6 +184,7 @@ function App() {
 
   useEffect(() => {
     if (!projectHydrated) return;
+    setProjectNotice('Saving locally…');
     const timeout = window.setTimeout(() => {
       saveAutosave(project)
         .then(() => setProjectNotice('Saved locally'))
@@ -202,9 +203,13 @@ function App() {
   }, [project, projectHydrated]);
 
   useEffect(() => {
+    if (!projectHydrated || (route !== 'editor' && route !== 'export')) return;
+    let active = true;
+    let analysis: AbortController | undefined;
     const timeout = window.setTimeout(() => {
       differenceController.current?.abort();
       const controller = new AbortController();
+      analysis = controller;
       differenceController.current = controller;
       setDifferenceProgress(0);
       runDifferenceJob(
@@ -219,14 +224,16 @@ function App() {
           if (activeStep === 'Difference') setProjectNotice(`Difference: ${stage}`);
         },
       ).then((result) => {
+        if (!active) return;
         setDifferenceResult(result);
         if (activeStep === 'Difference') setProjectNotice(`${result.regions.length} difference regions found`);
       }).catch((error) => {
+        if (!active) return;
         if ((error as DOMException).name !== 'AbortError') setProjectNotice(error instanceof Error ? error.message : 'Difference analysis failed');
-      }).finally(() => setDifferenceProgress(null));
+      }).finally(() => { if (active) setDifferenceProgress(null); });
     }, 220);
-    return () => window.clearTimeout(timeout);
-  }, [activeStep, alignmentSettings.transform, differenceSettings, imageA, imageB]);
+    return () => { active = false; window.clearTimeout(timeout); analysis?.abort(); };
+  }, [route, projectHydrated, alignmentSettings.transform, differenceSettings, imageA, imageB]);
 
   const selectFile = async (file: File | undefined, slot: 'A' | 'B') => {
     if (!file) return;
@@ -372,6 +379,7 @@ function App() {
   const editorSteps = getEditorWorkflow(project.preset.id);
   const projectLoader = <input ref={projectInput} hidden type="file" accept=".wallproj,application/json" onChange={(event) => openProject(event.target.files?.[0])} />;
 
+  if (!projectHydrated) return <main className="hub-page"><p role="status">Đang khôi phục dự án…</p></main>;
   if (route === 'projects') {
     return <><ProjectsPage onPlr={() => setRoute('plr')} onWardrobe={() => setRoute('wardrobe')} onLandscape={() => setRoute('landscape')} onProducts={() => setRoute('products')} onPlan={() => setRoute('artwork-plan')} onPreset={(presetId) => { setSelectedPresetId(presetId); const preset = getPreset(presetId); setProjectTarget(preset.supportedTargets.length === 1 ? preset.supportedTargets[0] : 'both'); setRoute('create'); }} project={project} onContinue={() => setRoute('editor')} onNew={() => setRoute('presets')} onOpen={() => projectInput.current?.click()} />{projectLoader}</>;
   }

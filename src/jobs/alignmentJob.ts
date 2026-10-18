@@ -27,6 +27,7 @@ export function runAlignmentJob(
   onProgress: (stage: string, progress: number) => void,
 ) {
   return new Promise<AlignmentResult>((resolve, reject) => {
+    if (signal.aborted) { reject(new DOMException('Alignment cancelled.', 'AbortError')); return; }
     const id = globalThis.crypto?.randomUUID?.() ?? `alignment-${Date.now()}`;
     const worker = new Worker(new URL('./alignment.worker.ts', import.meta.url), { type: 'module' });
     const abort = () => { worker.terminate(); reject(new DOMException('Alignment cancelled.', 'AbortError')); };
