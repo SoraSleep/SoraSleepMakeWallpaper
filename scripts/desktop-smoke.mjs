@@ -2,13 +2,16 @@ import fs from 'node:fs';import path from 'node:path';import os from 'node:os';i
 const runtime=loadRuntime(),require=createRequire(path.join(runtime.imageDreamRoot,'package.json')),{_electron}=require('playwright');
 const executable=path.resolve(process.argv[2]),resources=path.join(path.dirname(executable),'resources'),bundle=path.join(resources,'runtime'),data=fs.mkdtempSync(path.join(os.tmpdir(),'makewallpaper-desktop-'));assert.ok(fs.existsSync(executable));
 const manifest=JSON.parse(fs.readFileSync(path.join(resources,'studio/runtime-checksums.json'),'utf8'));for(const entry of manifest){const file=path.resolve(resources,entry.path.replace(/^payload\//,''));assert.ok(!path.relative(resources,file).startsWith('..'));assert.equal(createHash('sha256').update(fs.readFileSync(file)).digest('hex'),entry.sha256,entry.path);}
+console.log(JSON.stringify({phase:'payload-hashes',verifiedFiles:manifest.length}));
 const cleanEnv={...process.env,PATH:path.join(bundle,'bin')+';'+path.join(process.env.SystemRoot,'System32'),PYTHONHOME:path.join(bundle,'python'),PYTHONPATH:'',PYTHONNOUSERSITE:'1',U2NET_HOME:path.join(bundle,'models'),NUMBA_CACHE_DIR:path.join(data,'numba'),OMP_NUM_THREADS:'2'};
 const python=path.join(bundle,'python/python.exe'),exec=promisify(execFile);
 const sourceImage=path.resolve('real-test-output/release-2026-10-18/original.jpg');
 const probe=JSON.parse((await exec(path.join(bundle,'bin/ffprobe.exe'),['-v','error','-select_streams','v:0','-show_entries','stream=width,height','-of','json',sourceImage],{env:cleanEnv,windowsHide:true})).stdout);assert.equal(probe.streams[0].width,2560);assert.equal(probe.streams[0].height,1440);
 await exec(path.join(bundle,'bin/ffmpeg.exe'),['-v','error','-i',sourceImage,'-vf','scale=480:-2','-frames:v','1','-y',path.join(data,'thumbnail.jpg')],{env:cleanEnv,windowsHide:true});assert.ok(fs.statSync(path.join(data,'thumbnail.jpg')).size>1000);
+console.log(JSON.stringify({phase:'bundled-ffmpeg-ffprobe',passed:true}));
 const pythonTest=await exec(python,['-c','import sys,json;from PIL import Image;from rembg import new_session,remove;s=new_session("birefnet-general-lite",providers=["CPUExecutionProvider"]);im=Image.open(sys.argv[1]);out=remove(im,session=s);assert out.size==im.size;out.save(sys.argv[2]);print(json.dumps({"modelInference":True,"size":out.size,"python":sys.version.split()[0]}))',path.resolve('real-test-output/release-2026-10-18/original.jpg'),path.join(data,'segmented.png')],{env:cleanEnv,windowsHide:true,timeout:180000,maxBuffer:2000000});
 const inference=JSON.parse(pythonTest.stdout.trim().split(/\r?\n/).at(-1));
+console.log(JSON.stringify({phase:'bundled-model-inference',...inference}));
 let electron;const errors=[];try{
  electron=await _electron.launch({executablePath:executable,env:{...cleanEnv,SORASLEEP_DESKTOP_DATA:data},timeout:60000});
  const page=await electron.firstWindow({timeout:60000});page.on('pageerror',error=>errors.push(error.message));await page.locator('.home-preset').first().waitFor();assert.equal(await page.locator('.home-preset').count(),3);
