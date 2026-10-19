@@ -2,6 +2,7 @@
   "name": "motion-pair-studio",
   "private": true,
   "version": "0.1.0",
+  "desktopVersion": "1.0.1",
   "type": "module",
   "scripts": {
     "build:desktop": "node scripts/build-desktop.mjs",

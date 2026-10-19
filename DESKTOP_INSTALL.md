@@ -4,7 +4,7 @@ The user-scope Setup installs the three core studios, an Electron window, Node, 
 
 ## Install and use
 
-Run `SoraSleep-MakeWallpaper-Setup-1.0.0.exe`, choose a writable installation directory and open the desktop or Start menu shortcut. No administrator access is requested. This build is unsigned; it has no publisher certificate or automatic updater.
+Run `SoraSleep-MakeWallpaper-Setup-1.0.1.exe`, choose a writable installation directory and open the desktop or Start menu shortcut. No administrator access is requested. This build is unsigned; it has no publisher certificate or automatic updater. The fixed Python runtime excludes pip/ensurepip development installers; they are not needed for image processing.
 
 Choose Reveal, PLR Collection Studio or Landscape Batch. Use the Application menu to open the data folder or select the installed `SoraSleep Image Dream.exe`. Selecting Image Dream saves only its executable path in local configuration. It does not import account data. Closing MakeWallpaper while work is active is blocked; pause and wait for the current task, then close. The owned backend exits when idle. If its desktop owner disappears unexpectedly, it waits for in-flight work to become idle before exiting.
 

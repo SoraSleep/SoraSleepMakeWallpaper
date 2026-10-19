@@ -2,11 +2,11 @@ import fs from 'node:fs';import path from 'node:path';import {execFileSync} from
 const runtime=loadRuntime(),stage=path.resolve(process.env.SORASLEEP_DESKTOP_STAGE||'release-output/desktop-stage');
 if(fs.existsSync(stage))throw Error('Use a new staging directory; existing builds are never overwritten');
 const studio=path.join(stage,'payload/studio'),bundled=path.join(stage,'payload/runtime');fs.mkdirSync(studio,{recursive:true});
-const filter=source=>!['node_modules','__pycache__','.git'].includes(path.basename(source))&&!source.endsWith('.pyc')&&!source.endsWith('.test.mjs')&&!source.endsWith('.test.js');
+const filter=source=>!['node_modules','__pycache__','.git','pip','ensurepip'].includes(path.basename(source))&&!/^pip-.*\.dist-info$/.test(path.basename(source))&&!source.endsWith('.pyc')&&!source.endsWith('.test.mjs')&&!source.endsWith('.test.js');
 for(const item of ['dist','integrations/manager-desktop','scripts/runtime-config.mjs','scripts/studio-launch.mjs','scripts/project-mirror.mjs','DESKTOP_INSTALL.md']){const target=path.join(studio,item);fs.mkdirSync(path.dirname(target),{recursive:true});fs.cpSync(item,target,{recursive:true,filter});}
 for(const item of ['main.cjs','builder.cjs'])fs.copyFileSync(path.join('desktop',item),path.join(stage,item));
 const sharp=createRequire(import.meta.url)('sharp');await sharp('desktop/icon.svg').png().toFile(path.join(stage,'icon.png'));
-fs.writeFileSync(path.join(stage,'package.json'),JSON.stringify({name:'sorasleep-makewallpaper-desktop',version:'1.0.0',private:true,description:'SoraSleep wallpaper and static batch studio',author:'SoraSleep',main:'main.cjs',devDependencies:{electron:'44.7.0'}},null,2));
+fs.writeFileSync(path.join(stage,'package.json'),JSON.stringify({name:'sorasleep-makewallpaper-desktop',version:JSON.parse(fs.readFileSync('package.json')).desktopVersion,private:true,description:'SoraSleep wallpaper and static batch studio',author:'SoraSleep',main:'main.cjs',devDependencies:{electron:'44.7.0'}},null,2));
 const copy=(source,target)=>{fs.mkdirSync(path.dirname(target),{recursive:true});fs.cpSync(source,target,{recursive:true,filter});};
 copy(process.execPath,path.join(bundled,'node/node.exe'));
 const locate=command=>execFileSync('where.exe',[command],{encoding:'utf8',windowsHide:true}).trim().split(/\r?\n/)[0];
