@@ -5,6 +5,6 @@ const runtime=loadRuntime(),manager=runtime.backend;
 const {createPlrStore}=await import(pathToFileURL(path.join(manager,'plr-store.mjs')));
 const {createPlrApi}=await import(pathToFileURL(path.join(manager,'plr-api.mjs')));
 const root=runtime.dataRoot;
-const api=createPlrApi({store:createPlrStore({root}),port:runtime.port,imageDreamUrl:runtime.imageDreamUrl});await api.listen();
+const api=createPlrApi({store:createPlrStore({root}),port:runtime.port,imageDreamUrl:runtime.imageDreamUrl,watermarkRoot:path.join(root,'..','WatermarkCache')});await api.listen();
 console.log('Manager PLR source backend listening at http://127.0.0.1:17930; import/read, preflight, generation, image processing, QA, ZIP and automatic workflow enabled.');
 for(const signal of ['SIGINT','SIGTERM'])process.on(signal,async()=>{await api.close();process.exit(0);});

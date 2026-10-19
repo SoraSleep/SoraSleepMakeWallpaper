@@ -21,3 +21,5 @@ real-test-output/
 runtime.local.json
 data/
 release-output/
+__pycache__/
+*.pyc

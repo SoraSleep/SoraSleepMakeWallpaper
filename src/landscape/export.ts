@@ -3,11 +3,13 @@ import {zipSync,strToU8} from 'fflate';
 import {createLandscapeRenderer} from './renderer';
 import {parseLandscapeProject,type LandscapeProject} from './schema';
 import runtime from './runtime.js?raw';
+import {cleanOutputAsset} from '../export/watermarkCleanup';
 export {createLandscapeRenderer};
 export {defaultLandscapeSettings,parseLandscapeProject} from './schema';
 declare const VideoEncoder:any;declare const VideoFrame:any;
 export async function loadLandscapeImage(project:LandscapeProject){parseLandscapeProject(project);const image=new Image();image.src=project.image.source;await image.decode();if(image.naturalWidth!==project.image.width||image.naturalHeight!==project.image.height)throw new Error('landscape-decoded-dimensions-mismatch');return image;}
 export async function exportLandscapeVideo(project:LandscapeProject,render:{width:number;height:number;fps:number},onProgress?:(fraction:number)=>void,signal?:AbortSignal){
+ project={...project,image:await cleanOutputAsset(project.image)};
  const image=await loadLandscapeImage(project),{width,height,fps}=render;
  if(!project.reviewedRegions)throw new Error('review-landscape-regions-first');
  if(![width,height,fps].every(Number.isInteger)||width<128||height<128||width>1920||height>1920||width*height>1920*1080||width%2||height%2||![24,30].includes(fps)||Math.abs(width/height-image.width/image.height)>.01)throw new Error('invalid-landscape-render');
@@ -23,6 +25,7 @@ export async function exportLandscapeVideo(project:LandscapeProject,render:{widt
  }finally{encoder.close();draw.dispose();canvas.width=canvas.height=1;}
 }
 export async function exportLandscapeDesktop(project:LandscapeProject){
+ project={...project,image:await cleanOutputAsset(project.image)};
  const image=await loadLandscapeImage(project);if(!project.reviewedRegions)throw new Error('review-landscape-regions-first');
  const extension=project.image.mimeType==='image/jpeg'?'jpg':project.image.mimeType==='image/webp'?'webp':'png',assetPath='assets/image-a.'+extension;
  const bytes=Uint8Array.from(atob(project.image.source.split(',')[1]),c=>c.charCodeAt(0));const title=project.title.replace(/[<>&"']/g,'');

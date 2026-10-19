@@ -1,5 +1,6 @@
 import { strToU8, zipSync } from 'fflate';
 import type { MotionPairProject } from '../project/projectSchema';
+import {prepareCleanProject} from './watermarkCleanup';
 
 async function sha256(bytes: Uint8Array) {
   const digest = await crypto.subtle.digest('SHA-256', bytes.buffer as ArrayBuffer);
@@ -7,6 +8,7 @@ async function sha256(bytes: Uint8Array) {
 }
 
 export async function downloadMobileDistributionBundle(project: MotionPairProject, video: Blob) {
+  project=await prepareCleanProject(project);
   const videoBytes = new Uint8Array(await video.arrayBuffer());
   const safe = project.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'mobile-wallpaper';
   const extension = video.type.includes('webm') ? 'webm' : 'mp4';

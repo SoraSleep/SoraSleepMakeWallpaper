@@ -1,7 +1,7 @@
 import {createServer} from 'node:http';import fs from 'node:fs';import path from 'node:path';import {pathToFileURL} from 'node:url';import {loadRuntime} from './runtime-config.mjs';
 import {projectMirror} from './project-mirror.mjs';
 const runtime=loadRuntime(),at=name=>import(pathToFileURL(path.join(runtime.backend,name))),{createPlrStore}=await at('plr-store.mjs'),{createPlrApi}=await at('plr-api.mjs'),root=fs.realpathSync('dist');
-const api=createPlrApi({store:createPlrStore({root:runtime.dataRoot}),port:runtime.port,imageDreamUrl:runtime.imageDreamUrl});await api.listen();
+const api=createPlrApi({store:createPlrStore({root:runtime.dataRoot}),port:runtime.port,imageDreamUrl:runtime.imageDreamUrl,watermarkRoot:path.join(runtime.dataRoot,'..','WatermarkCache')});await api.listen();
 const mime={'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.json':'application/json','.jpg':'image/jpeg','.png':'image/png','.svg':'image/svg+xml','.webp':'image/webp','.wasm':'application/wasm'};
 const mirror=projectMirror(path.join(runtime.dataRoot,'..','WallpaperMirror'));
 const web=createServer(async(req,res)=>{try{

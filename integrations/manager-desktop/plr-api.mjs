@@ -1,4 +1,6 @@
 import {createPlrWorkflow} from './plr-workflow.mjs';
+import {createWatermarkCleanup} from './watermark-cleanup.mjs';
+import os from 'node:os';
 import {createPlrPackager} from './plr-package.mjs';
 import {createPlrListing} from './plr-listing.mjs';
 import {createLandscapeImageEdits} from './landscape-image-edits.mjs';
@@ -12,24 +14,26 @@ import {createPlrProcessor} from './plr-processing.mjs';
 import {createServer} from 'node:http';
 import {createPlrPreflight} from './plr-preflight.mjs';
 import {createPlrDispatcher} from './plr-dispatcher.mjs';
-import {readFileSync,realpathSync,createReadStream} from 'node:fs';import path from 'node:path';import {createHash} from 'node:crypto';
+import {readFileSync,realpathSync,createReadStream,mkdirSync,writeFileSync,existsSync} from 'node:fs';import path from 'node:path';import {createHash} from 'node:crypto';
 const allowed=new Set(['http://127.0.0.1:5173','http://localhost:5173','http://127.0.0.1:17880','http://localhost:17880']);
-export function createPlrApi({store,port=17930,imageDreamUrl='http://127.0.0.1:17897',fetchImpl=fetch}){
+export function createPlrApi({store,port=17930,imageDreamUrl='http://127.0.0.1:17897',fetchImpl=fetch,watermarkRoot=path.join(os.tmpdir(),'sorasleep-watermark-cache')}){
  store.recoverInterruptedRuns();
  const preflight=createPlrPreflight({store,baseUrl:imageDreamUrl,fetchImpl});
- const processor=createPlrProcessor({store});
+ const cleanup=createWatermarkCleanup();
+ const processor=createPlrProcessor({store,cleanup});
  const quality=createPlrQuality({store,processor});
- const packager=createPlrPackager({store,quality});
+ const packager=createPlrPackager({store,quality,cleanup});
  const listing=createPlrListing({packager});
  const landscapeEdits=createLandscapeImageEdits({baseUrl:imageDreamUrl,fetchImpl});
  const derivatives=createLandscapeDerivatives({store});
- const landscapeGallery=createLandscapeGallery({store,derivatives});
- const landscapeExporter=createLandscapeExporter({store,gallery:landscapeGallery,derivatives});
+ const landscapeGallery=createLandscapeGallery({store,derivatives,cleanup});
+ const landscapeExporter=createLandscapeExporter({store,gallery:landscapeGallery,derivatives,cleanup});
  const landscapeQuality=createLandscapeQuality({store,derivatives});
  const dispatcher=createPlrDispatcher({store,baseUrl:imageDreamUrl,fetchImpl,canSegment:segmentationAvailable});
  const workflow=createPlrWorkflow({store,dispatcher,processor,preflight,quality,packager});workflow.recover();
  const publicWorkflow=id=>{const state=workflow.read(id);return state?{...state,active:workflow.isBusy(),progress:workflow.progress(id)}:null;};
  const reply=(res,status,value)=>{res.writeHead(status,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store'});res.end(JSON.stringify(value));};
+ async function cleanBytes(bytes){const hash=createHash('sha256').update(bytes).digest('hex');mkdirSync(watermarkRoot,{recursive:true});const source=path.join(watermarkRoot,hash+'.input');if(!existsSync(source))writeFileSync(source,bytes,{flag:'wx'});return cleanup.clean(source,watermarkRoot,hash);}
  const server=createServer(async(req,res)=>{
   const origin=req.headers.origin,host=req.headers.host||'';
   if(!['127.0.0.1','::ffff:127.0.0.1','::1'].includes(req.socket.remoteAddress)||!/^127\.0\.0\.1:\d+$/.test(host)||origin&&!allowed.has(origin))return reply(res,403,{error:'plr-local-origin-required'});
@@ -38,6 +42,10 @@ export function createPlrApi({store,port=17930,imageDreamUrl='http://127.0.0.1:1
   if(req.method==='POST'&&(!allowed.has(origin)||req.headers['x-sorasleep-bridge']!=='1'))return reply(res,403,{error:'plr-write-origin-required'});
   try{
    const url=new URL(req.url,'http://127.0.0.1');
+   if(req.method==='POST'&&url.pathname==='/watermark-cleanup'){
+    const chunks=[];let size=0;for await(const chunk of req){size+=chunk.length;if(size>30000000)throw Error('watermark-image-too-large');chunks.push(chunk);}const bytes=Buffer.concat(chunks);if(!bytes.length)throw Error('watermark-image-required');
+    const cleaned=await cleanBytes(bytes),output=readFileSync(cleaned.file);res.writeHead(200,{'Content-Type':cleaned.mime,'Content-Length':output.length,'Cache-Control':'no-store','X-SoraSleep-Watermark':cleaned.watermark.status,'X-SoraSleep-Source-SHA256':cleaned.watermark.sourceSha256,'Access-Control-Expose-Headers':'X-SoraSleep-Watermark, X-SoraSleep-Source-SHA256'});res.end(output);return;
+   }
    if(url.pathname==='/image-dream/wallet-refresh'&&['GET','POST'].includes(req.method)){
     if(req.method==='POST'&&(dispatcher.isBusy()||workflow.isBusy()))throw Error('plr-executor-busy');
     if(req.method==='POST'){const capability=await preflight.capabilities();if(capability.busy)throw Error('plr-image-dream-busy');}
@@ -49,7 +57,7 @@ export function createPlrApi({store,port=17930,imageDreamUrl='http://127.0.0.1:1
    if(/^\/landscape-batches\/[a-f0-9-]{36}\/items\/[a-f0-9-]{36}\/edited$/.test(url.pathname)){
     const parts=url.pathname.split('/');
     if(req.method==='POST'){let body='';for await(const chunk of req){body+=chunk;if(Buffer.byteLength(body)>28001000)throw Error('landscape-reviewed-upload-too-large');}return reply(res,200,await derivatives.attach(parts[2],parts[4],JSON.parse(body)));}
-    if(req.method==='GET'){const image=derivatives.resolve(parts[2],parts[4]);res.writeHead(200,{'Content-Type':'image/png','Content-Length':image.bytes,'Cache-Control':'no-store','Content-Disposition':'inline; filename="landscape-reviewed.png"'});const stream=createReadStream(image.file);stream.on('error',()=>res.destroy());stream.pipe(res);return;}
+    if(req.method==='GET'){const image=derivatives.resolve(parts[2],parts[4]),cleaned=await cleanup.clean(image.file,path.dirname(image.file),image.sha256);res.writeHead(200,{'Content-Type':cleaned.mime,'Content-Length':cleaned.bytes,'Cache-Control':'no-store','Content-Disposition':'inline; filename="landscape-reviewed.png"'});const stream=createReadStream(cleaned.file);stream.on('error',()=>res.destroy());stream.pipe(res);return;}
    }
    if(req.method==='POST'&&/^\/landscape-batches\/[a-f0-9-]{36}\/exports\/cancel$/.test(url.pathname))return reply(res,200,landscapeExporter.cancel(url.pathname.split('/')[2]));
    if(req.method==='GET'&&/^\/landscape-batches\/[a-f0-9-]{36}\/exports$/.test(url.pathname))return reply(res,200,{exports:landscapeExporter.list(url.pathname.split('/')[2])});
@@ -74,13 +82,13 @@ export function createPlrApi({store,port=17930,imageDreamUrl='http://127.0.0.1:1
    if(req.method==='GET'&&url.pathname==='/landscape-edits/assets')return reply(res,200,{assets:await landscapeEdits.assets()});
    if(req.method==='GET'&&url.pathname==='/landscape-edits/source'){const result=await landscapeEdits.source(url.searchParams.get('assetId'));res.writeHead(200,{'Content-Type':result.mime,'Content-Length':result.bytes.length,'Cache-Control':'no-store'});res.end(result.bytes);return;}
    if(req.method==='POST'&&(url.pathname==='/landscape-edits/preview'||/^\/landscape-edits\/[a-f0-9-]{36}\/save$/.test(url.pathname))){let body='';for await(const chunk of req){body+=chunk;if(Buffer.byteLength(body)>2100000)throw Error('plr-request-too-large');}return reply(res,200,url.pathname.endsWith('/save')?await landscapeEdits.save(url.pathname.split('/')[2],JSON.parse(body)):await landscapeEdits.preview(JSON.parse(body)));}
-   if(req.method==='GET'&&/^\/landscape-edits\/[a-f0-9-]{36}\/(preview|download)$/.test(url.pathname)){const parts=url.pathname.split('/');if(parts[3]==='preview'){const bytes=await landscapeEdits.image(parts[2]);res.writeHead(200,{'Content-Type':'image/png','Content-Length':bytes.length,'Cache-Control':'no-store'});res.end(bytes);}else{const result=await landscapeEdits.download(parts[2]);res.writeHead(200,{'Content-Type':'image/png','Content-Length':result.bytes.length,'Cache-Control':'no-store','Content-Disposition':'attachment; filename="'+result.fileName+'"'});res.end(result.bytes);}return;}
+   if(req.method==='GET'&&/^\/landscape-edits\/[a-f0-9-]{36}\/(preview|download)$/.test(url.pathname)){const parts=url.pathname.split('/');if(parts[3]==='preview'){const bytes=await landscapeEdits.image(parts[2]);res.writeHead(200,{'Content-Type':'image/png','Content-Length':bytes.length,'Cache-Control':'no-store'});res.end(bytes);}else{const downloaded=await landscapeEdits.download(parts[2]),cleaned=await cleanBytes(downloaded.bytes),result={bytes:readFileSync(cleaned.file),fileName:downloaded.fileName};res.writeHead(200,{'Content-Type':'image/png','Content-Length':result.bytes.length,'Cache-Control':'no-store','Content-Disposition':'attachment; filename="'+result.fileName+'"'});res.end(result.bytes);}return;}
    if(req.method==='GET'&&/^\/runs\/[a-f0-9-]{36}\/workflow$/.test(url.pathname))return reply(res,200,publicWorkflow(url.pathname.split('/')[2]));
    if(req.method==='POST'&&/^\/runs\/[a-f0-9-]{36}\/workflow\/package-limit$/.test(url.pathname)){if(dispatcher.isBusy()||processor.isBusy()||preflight.isBusy()||quality.isBusy()||packager.isBusy())throw Error('plr-executor-busy');let body='';for await(const chunk of req){body+=chunk;if(Buffer.byteLength(body)>10000)throw Error('plr-request-too-large');}workflow.updatePackageLimit(url.pathname.split('/')[2],JSON.parse(body));return reply(res,200,publicWorkflow(url.pathname.split('/')[2]));}
    if(req.method==='POST'&&/^\/runs\/[a-f0-9-]{36}\/workflow\/(start|resume|pause)$/.test(url.pathname)){const parts=url.pathname.split('/'),id=parts[2],action=parts[4];if(action==='pause')return reply(res,200,{...workflow.pause(id),active:workflow.isBusy()});if(dispatcher.isBusy()||processor.isBusy()||preflight.isBusy()||quality.isBusy()||packager.isBusy())throw Error('plr-executor-busy');let body='';for await(const chunk of req){body+=chunk;if(Buffer.byteLength(body)>100000)throw Error('plr-workflow-options-too-large');}workflow.start(id,action==='start'?JSON.parse(body):undefined);return reply(res,200,publicWorkflow(id));}
    if(req.method==='POST'&&workflow.isBusy())throw Error('plr-workflow-busy');
    if(req.method==='POST'&&/^\/runs\/[a-f0-9-]{36}\/items\/[a-f0-9-]{36}\/exclude$/.test(url.pathname)){if(dispatcher.isBusy()||processor.isBusy()||preflight.isBusy()||quality.isBusy()||packager.isBusy())throw Error('plr-executor-busy');let body='';for await(const chunk of req){body+=chunk;if(Buffer.byteLength(body)>10000)throw Error('plr-request-too-large');}const parts=url.pathname.split('/');return reply(res,200,store.excludeItem(parts[2],parts[4],JSON.parse(body)));}
-   if(req.method==='GET'&&url.pathname==='/capabilities')return reply(res,200,{appId:'com.sorasleep.manager.plr',schemaVersion:1,backendVersion:2,reviewedVariants:true,qualityJobs:true,walletRefresh:true,importRuns:true,preflight:true,generation:true,processing:true,segmentation:segmentationAvailable(),quality:true,packaging:true,listing:true,workflow:true,executorBusy:dispatcher.isBusy()||processor.isBusy()||quality.isBusy()||packager.isBusy()||listing.isBusy()||workflow.isBusy()});
+   if(req.method==='GET'&&url.pathname==='/capabilities')return reply(res,200,{appId:'com.sorasleep.manager.plr',schemaVersion:1,backendVersion:2,reviewedVariants:true,qualityJobs:true,walletRefresh:true,watermarkCleanup:true,importRuns:true,preflight:true,generation:true,processing:true,segmentation:segmentationAvailable(),quality:true,packaging:true,listing:true,workflow:true,executorBusy:cleanup.isBusy()||dispatcher.isBusy()||processor.isBusy()||quality.isBusy()||packager.isBusy()||listing.isBusy()||workflow.isBusy()});
    if(req.method==='GET'&&/^\/runs\/[a-f0-9-]{36}\/quality$/.test(url.pathname))return reply(res,200,quality.read(url.pathname.split('/')[2]));
    if(req.method==='POST'&&/^\/runs\/[a-f0-9-]{36}\/quality$/.test(url.pathname)){if(dispatcher.isBusy()||processor.isBusy()||preflight.isBusy()||packager.isBusy())throw Error('plr-executor-busy');return reply(res,200,await quality.analyze(url.pathname.split('/')[2]));}
    if(req.method==='POST'&&/^\/runs\/[a-f0-9-]{36}\/selection$/.test(url.pathname)){if(dispatcher.isBusy()||processor.isBusy()||preflight.isBusy()||quality.isBusy()||packager.isBusy())throw Error('plr-executor-busy');let body='';for await(const chunk of req){body+=chunk;if(Buffer.byteLength(body)>300000)throw Error('plr-selection-too-large');}return reply(res,200,quality.select(url.pathname.split('/')[2],JSON.parse(body)));}
@@ -100,9 +108,9 @@ export function createPlrApi({store,port=17930,imageDreamUrl='http://127.0.0.1:1
     if(!relative||relative.startsWith('..')||path.isAbsolute(relative))throw Error('plr-artifact-path-invalid');
     const bytes=readFileSync(file);if((artifact.bytes!==undefined&&bytes.length!==artifact.bytes)||createHash('sha256').update(bytes).digest('hex')!==artifact.sha256)throw Error('plr-artifact-changed');
     const mime={'.jpeg':'image/jpeg','.jpg':'image/jpeg','.png':'image/png','.webp':'image/webp'}[path.extname(file)];if(!mime)throw Error('plr-artifact-format-invalid');
-    res.writeHead(200,{'Content-Type':mime,'Content-Length':bytes.length,'Cache-Control':'no-store',...(url.searchParams.get('download')==='1'?{'Content-Disposition':'attachment; filename="landscape-'+String(row.ordinal).padStart(4,'0')+path.extname(file)+'"'}:{})});res.end(bytes);return;
+    const cleaned=await cleanup.clean(file,folder,artifact.sha256),output=readFileSync(cleaned.file);res.writeHead(200,{'Content-Type':cleaned.mime,'Content-Length':output.length,'Cache-Control':'no-store',...(url.searchParams.get('download')==='1'?{'Content-Disposition':'attachment; filename="landscape-'+String(row.ordinal).padStart(4,'0')+(cleaned.reencoded?'.png':path.extname(file))+'"'}:{})});res.end(output);return;
    }
-   if(req.method==='GET'&&/^\/runs\/[a-f0-9-]{36}$/.test(url.pathname))return reply(res,200,{...store.get(url.pathname.split('/')[2],{offset:Number(url.searchParams.get('offset')??0),limit:Number(url.searchParams.get('limit')??50)}),executorBusy:dispatcher.isBusy()||processor.isBusy()||quality.isBusy()||packager.isBusy()||workflow.isBusy()});
+   if(req.method==='GET'&&/^\/runs\/[a-f0-9-]{36}$/.test(url.pathname))return reply(res,200,{...store.get(url.pathname.split('/')[2],{offset:Number(url.searchParams.get('offset')??0),limit:Number(url.searchParams.get('limit')??50)}),executorBusy:cleanup.isBusy()||dispatcher.isBusy()||processor.isBusy()||quality.isBusy()||packager.isBusy()||workflow.isBusy()});
    if(req.method==='POST'&&/^\/runs\/[a-f0-9-]{36}\/preflight$/.test(url.pathname)){if(dispatcher.isBusy()||processor.isBusy()||quality.isBusy()||packager.isBusy())throw Error('plr-executor-busy');return reply(res,200,await preflight.quote(url.pathname.split('/')[2]));}
    if(req.method==='POST'&&/^\/runs\/[a-f0-9-]{36}\/(start|resume|pause|reconcile)$/.test(url.pathname)){
     const parts=url.pathname.split('/'),id=parts[2],action=parts[3];
@@ -117,5 +125,5 @@ export function createPlrApi({store,port=17930,imageDreamUrl='http://127.0.0.1:1
   }catch(e){return reply(res,e.code==='ENOENT'?404:400,{error:e instanceof SyntaxError?'plr-invalid-json':e.message});}
  });
  server.requestTimeout=30000;server.headersTimeout=10000;
- return {server,isBusy:()=>preflight.isBusy()||dispatcher.isBusy()||processor.isBusy()||quality.isBusy()||packager.isBusy()||listing.isBusy()||workflow.isBusy()||landscapeQuality.isBusy?.()||landscapeExporter.isBusy?.(),listen:()=>new Promise((resolve,reject)=>{server.once('error',reject);server.listen(port,'127.0.0.1',()=>resolve(server.address()));}),close:()=>new Promise(resolve=>{landscapeQuality.dispose();landscapeExporter.dispose();workflow.dispose();dispatcher.dispose();processor.dispose();quality.dispose();packager.dispose();server.closeAllConnections();server.close(resolve);})};
+ return {server,isBusy:()=>cleanup.isBusy()||preflight.isBusy()||dispatcher.isBusy()||processor.isBusy()||quality.isBusy()||packager.isBusy()||listing.isBusy()||workflow.isBusy()||landscapeQuality.isBusy?.()||landscapeExporter.isBusy?.(),listen:()=>new Promise((resolve,reject)=>{server.once('error',reject);server.listen(port,'127.0.0.1',()=>resolve(server.address()));}),close:()=>new Promise(resolve=>{landscapeQuality.dispose();landscapeExporter.dispose();workflow.dispose();dispatcher.dispose();processor.dispose();quality.dispose();packager.dispose();server.closeAllConnections();server.close(resolve);})};
 }

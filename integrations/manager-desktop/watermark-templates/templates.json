@@ -1,0 +1,31 @@
+{
+  "schemaVersion": 1,
+  "recipe": "dreamina-glyphs-v1",
+  "trainingImages": 50,
+  "templates": [
+    {
+      "name": "ai-badge",
+      "file": "ai-badge.png",
+      "referenceShortSide": 1440,
+      "referenceBox": [
+        20,
+        19,
+        119,
+        105
+      ],
+      "pixels": 1847
+    },
+    {
+      "name": "dreamina-logo",
+      "file": "dreamina-logo.png",
+      "referenceShortSide": 1440,
+      "referenceBox": [
+        1887,
+        1293,
+        647,
+        122
+      ],
+      "pixels": 13865
+    }
+  ]
+}

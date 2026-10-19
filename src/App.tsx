@@ -37,6 +37,7 @@ import { validateWallpaperPackage } from './project/packageValidator';
 import { validateMobileCommercialExport } from './project/mobileCommercialValidator';
 import { exportMobileVideo } from './export/mobileVideoExport';
 import { exportMobileVideoFallback } from './export/mobileMediaRecorderFallback';
+import {prepareCleanProject} from './export/watermarkCleanup';
 import { downloadMobileDistributionBundle } from './export/mobileDistributionBundle';
 import { ProjectsPage } from './pages/ProjectsPage';
 import { ArtworkPlanPage } from './pages/ArtworkPlanPage';
@@ -340,19 +341,21 @@ function App() {
       return;
     }
     try {
+      setMobileExportProgress(0);setProjectNotice('Đang xử lý watermark và nhãn AI trước khi xuất…');
+      const outputProject=await prepareCleanProject(project);
       if (exportTarget === 'mobile-video') {
         setMobileExportProgress(0); setProjectNotice('Encoding mobile video');
         let result: { bytes: number; format?: 'webm'; blob?: Blob };
         try {
-          result = await exportMobileVideo(project, differenceResult, (progress) => setMobileExportProgress(progress));
+          result = await exportMobileVideo(outputProject, differenceResult, (progress) => setMobileExportProgress(progress));
         } catch (error) {
           if (error instanceof Error && /WebCodecs|H\.264|video export/i.test(error.message)) {
             setProjectNotice('WebCodecs unavailable · using browser fallback (WebM)');
-            result = await exportMobileVideoFallback(project, differenceResult, (progress) => setMobileExportProgress(progress));
+            result = await exportMobileVideoFallback(outputProject, differenceResult, (progress) => setMobileExportProgress(progress));
           } else throw error;
         }
         if (result.blob) {
-          const bundle = await downloadMobileDistributionBundle(project, result.blob);
+          const bundle = await downloadMobileDistributionBundle(outputProject, result.blob);
           let managerCopy = false;
           try { await syncProjectToManager(project); await syncExportToManager(project, 'mobile-bundle', bundle.fileName, bundle.blob); managerCopy = true; setManagerSync('synced'); } catch { setManagerSync('error'); }
           setProjectNotice(`Exported mobile ${result.format === 'webm' ? 'WebM fallback' : 'MP4'} + bundle · ${(bundle.bytes / 1024 / 1024).toFixed(2)} MB${managerCopy ? ' · saved to Manager' : ' · Manager copy failed'}`);
@@ -363,7 +366,7 @@ function App() {
         return;
       }
       setProjectNotice('Building offline wallpaper ZIP');
-      const result = await exportWallpaperPackage(project, differenceResult);
+      const result = await exportWallpaperPackage(outputProject, differenceResult);
       let managerCopy = false;
       try { await syncProjectToManager(project); await syncExportToManager(project, 'desktop-web', result.fileName, result.blob); managerCopy = true; setManagerSync('synced'); } catch { setManagerSync('error'); }
       setProjectNotice(`Exported ${result.fileName} · ${(result.bytes / 1024 / 1024).toFixed(2)} MB${managerCopy ? ' · saved to Manager' : ' · Manager copy failed'}`);
@@ -372,7 +375,7 @@ function App() {
     } catch (error) {
       setMobileExportProgress(null);
       setProjectNotice(error instanceof Error ? error.message : 'Wallpaper export failed');
-    }
+    } finally {setMobileExportProgress(null);}
   };
   const packageValidation = validateWallpaperPackage(project, Boolean(differenceResult));
   const mobileValidation = validateMobileCommercialExport(project, Boolean(differenceResult));
@@ -1108,4 +1111,4 @@ function RightsField({
   );
 }
 
-export default function Application(){return <Suspense fallback={<main className="hub-page"><p role="status">Đang mở studio…</p></main>}><App/></Suspense>;}
+export default function Application(){return <><div className="watermark-service-note">Tự xử lý watermark Dreamina và nhãn AI trên ảnh trước khi xuất · Kiểm tra lại chi tiết vùng đã sửa trước khi bán.</div><Suspense fallback={<main className="hub-page"><p role="status">Đang mở studio…</p></main>}><App/></Suspense></>;}

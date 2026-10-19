@@ -72,7 +72,9 @@ export function createAlignedImage(image: HTMLImageElement, width: number, heigh
   return aligned;
 }
 
+import {prepareCleanProject} from './watermarkCleanup';
 export async function exportMobileVideo(project: MotionPairProject, mask: ExportMask, onProgress?: (progress: number) => void, signal?: AbortSignal) {
+  project=await prepareCleanProject(project);
   if (typeof VideoEncoder === 'undefined' || typeof VideoFrame === 'undefined') throw new Error('This browser does not support WebCodecs video export.');
   const [imageA, imageB] = await Promise.all([loadImage(project.assets.imageA.source), loadImage(project.assets.imageB.source)]);
   const { width, height, fps } = project.mobileRender;

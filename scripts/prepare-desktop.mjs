@@ -19,7 +19,10 @@ for(const entry of fs.readdirSync(pythonBase)){if(['include','libs','Scripts','t
 fs.cpSync(path.join(pythonBase,'Lib'),path.join(pythonTarget,'Lib'),{recursive:true,filter:source=>filter(source)&&path.basename(source)!=='site-packages'&&path.basename(source)!=='test'});
 copy(pythonSite,path.join(pythonTarget,'Lib/site-packages'));
 for(const name of ['msvcp140.dll','msvcp140_1.dll','msvcp140_2.dll','concrt140.dll']){const file=path.join(process.env.SystemRoot,'System32',name);if(fs.existsSync(file))copy(file,path.join(pythonTarget,name));}
-if(!runtime.models)throw Error('Configure segmentation models for the full offline runtime');copy(runtime.models,path.join(bundled,'models'));
+if(!runtime.models)throw Error('Configure segmentation models for the full offline runtime');
+const watermarkModel=path.join(runtime.models,'inpainting_lama_2025jan.onnx');
+if(!fs.existsSync(watermarkModel)||createHash('sha256').update(fs.readFileSync(watermarkModel)).digest('hex')!=='7df918ac3921d3daf0aae1d219776cf0dc4e4935f035af81841b40adcf74fdf2'||!fs.existsSync(path.join(runtime.models,'LaMa-LICENSE.txt')))throw Error('Run npm run setup:watermark-model before packaging');
+copy(runtime.models,path.join(bundled,'models'));
 const version=cmd=>execFileSync(cmd,['-version'],{encoding:'utf8',windowsHide:true}).split(/\r?\n/)[0];
 fs.writeFileSync(path.join(bundled,'RUNTIME-NOTICES.txt'),'Bundled runtime inventory. Python packages retain their dist-info licenses. Python LICENSE.txt is bundled.\nNode.js: https://nodejs.org/en/about/previous-releases\nFFmpeg: https://ffmpeg.org/legal.html and https://www.gyan.dev/ffmpeg/builds/ (full build, GPL configuration). Source: https://github.com/GyanD/codexffmpeg/releases\nBiRefNet: https://github.com/ZhengPeng7/BiRefNet\n'+version(locate('ffmpeg.exe'))+'\n'+version(locate('ffprobe.exe'))+'\n');
 // Node license comes from the installed distribution; do not silently omit notices.

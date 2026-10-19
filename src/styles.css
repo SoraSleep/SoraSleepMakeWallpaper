@@ -610,6 +610,7 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px s
   .mode-grid { padding-top: 10px; padding-bottom: 11px; }
 }
 
+.watermark-service-note { padding:9px 20px; text-align:center; color:#bed895; background:#17251b; border-bottom:1px solid #34432d; font-size:12px; line-height:1.5; }
 .home-presets { margin:30px 0; }
 .home-preset-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(190px,1fr)); gap:14px; }
 .home-preset { display:flex; flex-direction:column; align-items:flex-start; text-align:left; padding:22px; min-height:230px; background:#171c23; color:#edf0f4; border:1px solid #35404d; border-radius:16px; cursor:pointer; }

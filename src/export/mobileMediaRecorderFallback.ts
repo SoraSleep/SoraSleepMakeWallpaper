@@ -1,4 +1,5 @@
 import type { MotionPairProject } from '../project/projectSchema';
+import {prepareCleanProject} from './watermarkCleanup';
 import { createAlignedImage } from './mobileVideoExport';
 import { prepareHiddenReveal } from './hiddenRevealFrame';
 import { prepareParallaxVideo } from './parallaxVideoFrame';
@@ -12,6 +13,7 @@ const loadImage = (source: string) => new Promise<HTMLImageElement>((resolve, re
 
 /** Best-effort fallback for browsers without WebCodecs. Output is WebM. */
 export async function exportMobileVideoFallback(project: MotionPairProject, mask: ExportMask, onProgress?: (value: number) => void, signal?: AbortSignal) {
+  project=await prepareCleanProject(project);
   if (typeof MediaRecorder === 'undefined') throw new Error('Video export is unsupported in this browser.');
   const [a, b] = await Promise.all([loadImage(project.assets.imageA.source), loadImage(project.assets.imageB.source)]);
   const { width, height, fps } = project.mobileRender;
