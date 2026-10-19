@@ -15,7 +15,10 @@ console.log(JSON.stringify({phase:'bundled-model-inference',...inference}));
 let electron;const errors=[];try{
  electron=await _electron.launch({executablePath:executable,env:{...cleanEnv,SORASLEEP_DESKTOP_DATA:data},timeout:60000});
  const page=await electron.firstWindow({timeout:60000});page.on('pageerror',error=>errors.push(error.message));await page.locator('.home-preset').first().waitFor();assert.equal(await page.locator('.home-preset').count(),3);
- const api='http://127.0.0.1:17932',cap=await(await fetch(api+'/capabilities')).json();assert.equal(cap.segmentation,true);assert.equal(cap.backendVersion,2);
+ const api='http://127.0.0.1:17932',cap=await(await fetch(api+'/capabilities')).json();assert.equal(cap.segmentation,true);assert.equal(cap.backendVersion,2);assert.equal(cap.watermarkCleanup,true);
+ const portraits=JSON.parse(fs.readFileSync('real-test-output/watermark-all/portrait-live/report.json'));
+ for(const item of portraits.items){const response=await fetch(api+'/watermark-cleanup',{method:'POST',headers:{Origin:'http://127.0.0.1:17880','X-SoraSleep-Bridge':'1','Content-Type':'image/jpeg'},body:fs.readFileSync(item.artifact.file)});assert.equal(response.status,200);assert.equal(response.headers.get('x-sorasleep-watermark'),'known-marks-processed');const bytes=Buffer.from(await response.arrayBuffer());assert.equal(bytes.readUInt32BE(16),1440);assert.equal(bytes.readUInt32BE(20),2560);}
+ console.log(JSON.stringify({phase:'installed-watermark-cleanup',images:2,passed:true}));
  assert.equal(await page.evaluate(()=>typeof window.require),'undefined');
  const graphics=await page.evaluate(async()=>{
   const gl=document.createElement('canvas').getContext('webgl2');if(!gl)throw Error('WebGL2 unavailable');const webgl=gl.getParameter(gl.VERSION);gl.getExtension('WEBGL_lose_context')?.loseContext();

@@ -48,6 +48,12 @@ def detect(rgba):
             high=np.maximum(roi-cv2.GaussianBlur(roi,(0,0),max(.8,5*scale)),0)
             if float(high.max())<.1:return None
             scores=cv2.matchTemplate(high,template,cv2.TM_CCOEFF_NORMED)
+            # Normalized correlation is undefined on constant windows. OpenCV
+            # may return 1 there from floating-point cancellation, not a logo.
+            integral=cv2.integral(high);square=cv2.integral(high*high);area=tw*th
+            mean=(integral[th:,tw:]-integral[:-th,tw:]-integral[th:,:-tw]+integral[:-th,:-tw])/area
+            variance=(square[th:,tw:]-square[:-th,tw:]-square[th:,:-tw]+square[:-th,:-tw])/area-mean*mean
+            scores[(variance<.35**2)|~np.isfinite(scores)]=-1
             # Provider marks are anchored to the corner. Interior illustration
             # details must not trigger a badge match after an alpha crop.
             if item['name']=='ai-badge':
