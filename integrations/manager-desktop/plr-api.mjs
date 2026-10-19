@@ -117,5 +117,5 @@ export function createPlrApi({store,port=17930,imageDreamUrl='http://127.0.0.1:1
   }catch(e){return reply(res,e.code==='ENOENT'?404:400,{error:e instanceof SyntaxError?'plr-invalid-json':e.message});}
  });
  server.requestTimeout=30000;server.headersTimeout=10000;
- return {server,listen:()=>new Promise((resolve,reject)=>{server.once('error',reject);server.listen(port,'127.0.0.1',()=>resolve(server.address()));}),close:()=>new Promise(resolve=>{landscapeQuality.dispose();landscapeExporter.dispose();workflow.dispose();dispatcher.dispose();processor.dispose();quality.dispose();packager.dispose();server.closeAllConnections();server.close(resolve);})};
+ return {server,isBusy:()=>preflight.isBusy()||dispatcher.isBusy()||processor.isBusy()||quality.isBusy()||packager.isBusy()||listing.isBusy()||workflow.isBusy()||landscapeQuality.isBusy?.()||landscapeExporter.isBusy?.(),listen:()=>new Promise((resolve,reject)=>{server.once('error',reject);server.listen(port,'127.0.0.1',()=>resolve(server.address()));}),close:()=>new Promise(resolve=>{landscapeQuality.dispose();landscapeExporter.dispose();workflow.dispose();dispatcher.dispose();processor.dispose();quality.dispose();packager.dispose();server.closeAllConnections();server.close(resolve);})};
 }

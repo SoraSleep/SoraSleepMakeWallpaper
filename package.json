@@ -4,6 +4,7 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
+    "build:desktop": "node scripts/build-desktop.mjs",
     "runtime:check": "node scripts/runtime-check.mjs",
     "studio:start": "node scripts/studio-launch.mjs",
     "build:portable": "npm run build && node scripts/package-portable.mjs",
@@ -64,6 +65,9 @@
   "devDependencies": {
     "@types/react": "latest",
     "@types/react-dom": "latest",
+    "electron": "44.7.0",
+    "electron-builder": "26.15.3",
+    "sharp": "0.35.5",
     "typescript": "latest"
   }
 }

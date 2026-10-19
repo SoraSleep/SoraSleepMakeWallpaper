@@ -14,4 +14,10 @@ const web=createServer(async(req,res)=>{try{
  }catch{res.writeHead(404);res.end('Not found');}});
 try{await new Promise((resolve,reject)=>{web.once('error',reject);web.listen(17880,'127.0.0.1',resolve);});}catch(error){await api.close();throw error;}
 console.log('SoraSleep Studio ready: http://127.0.0.1:17880');
-for(const signal of ['SIGINT','SIGTERM'])process.on(signal,async()=>{await new Promise(resolve=>web.close(resolve));await api.close();process.exit(0);});
+process.send?.({type:'ready',url:'http://127.0.0.1:17880'});
+let closing=false;
+async function shutdown(){if(closing)return;if(api.isBusy()){process.send?.({type:'busy'});return;}closing=true;await new Promise(resolve=>{web.close(resolve);web.closeAllConnections();});await api.close();process.exit(0);}
+process.on('message',message=>{if(message?.type==='status')process.send?.({type:'status',id:message.id,busy:!!api.isBusy()});if(message?.type==='shutdown')shutdown();});
+for(const signal of ['SIGINT','SIGTERM'])process.on(signal,shutdown);
+// If the desktop owner disappears, retain in-flight work and exit only when idle.
+if(process.env.SORASLEEP_DESKTOP_PID){const owner=Number(process.env.SORASLEEP_DESKTOP_PID);setInterval(()=>{try{process.kill(owner,0);}catch(error){if(error.code==='ESRCH')shutdown();}},3000).unref();}

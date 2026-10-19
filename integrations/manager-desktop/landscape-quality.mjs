@@ -42,5 +42,5 @@ export function createLandscapeQuality({store,decode=decodePlrImage,derivatives}
   }catch(error){jobs.set(id,{...status(id),state:job.cancelled?'cancelled':'failed',error:error.message});throw error;}finally{active=null;}
  }
  function start(id){if(active)throw Error('landscape-quality-busy');if(store.getState(id).run.preset.studio!=='text-to-image-landscape')throw Error('landscape-batch-not-found');void analyze(id).catch(()=>{});return status(id);}
- return{analyze,start,status,cancel,dispose:()=>{if(active)active.cancelled=true;}};
+ return{analyze,start,status,cancel,isBusy:()=>!!active,dispose:()=>{if(active)active.cancelled=true;}};
 }
