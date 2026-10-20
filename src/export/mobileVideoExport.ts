@@ -89,7 +89,9 @@ export async function exportMobileVideo(project: MotionPairProject, mask: Export
   const target = new ArrayBufferTarget();
   const muxer = new Muxer({ target, video: { codec: 'avc', width, height, frameRate: fps }, fastStart: 'in-memory' });
   let failure: Error | null = null;
-  const encoderConfig = { codec: 'avc1.42001f', width, height, bitrate: project.mobileRender.quality === 'premium' ? 14_000_000 : project.mobileRender.quality === 'economy' ? 4_000_000 : 8_000_000, framerate: fps };
+  const macroblocks=Math.ceil(width/16)*Math.ceil(height/16);
+  const level=macroblocks<=3600&&macroblocks*fps<=108000?'1f':macroblocks<=8192&&macroblocks*fps<=245760?'28':'32';
+  const encoderConfig = { codec: 'avc1.4200'+level, width, height, bitrate: project.mobileRender.quality === 'premium' ? 14_000_000 : project.mobileRender.quality === 'economy' ? 4_000_000 : 8_000_000, framerate: fps };
   if (typeof VideoEncoder.isConfigSupported === 'function') {
     const support = await VideoEncoder.isConfigSupported(encoderConfig);
     if (!support.supported) throw new Error(`H.264 export is not supported at ${width}×${height} and ${fps} FPS.`);
