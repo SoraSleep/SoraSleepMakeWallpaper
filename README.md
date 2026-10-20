@@ -10,7 +10,7 @@ Image Dream owns provider login and generation credits. MakeWallpaper does not s
 
 ## Windows desktop
 
-The user-scope 1.0.1 installer bundles Electron, Node, FFmpeg/FFprobe, Python image libraries and the BiRefNet lite model. See [desktop installation and build instructions](DESKTOP_INSTALL.md). The desktop uses its own persistent data folder and leaves existing Manager/browser stores in place. Experimental Artwork Plan/Product Center backend routes are outside the packaged core scope.
+The user-scope 1.0.3 installer bundles Electron, Node, FFmpeg/FFprobe, Python image libraries and the BiRefNet lite model. See [desktop installation and build instructions](DESKTOP_INSTALL.md). The desktop uses its own persistent data folder and leaves existing Manager/browser stores in place. Experimental Artwork Plan/Product Center backend routes are outside the packaged core scope.
 
 The release is unsigned. A fresh Windows VM test and an automatic updater are not yet certified. Installer binaries, model weights, private stores and test media are intentionally excluded from Git.
 
@@ -39,3 +39,5 @@ node scripts/desktop-smoke.mjs "absolute path to SoraSleep MakeWallpaper.exe"
 ```
 
 The desktop smoke test verifies installed payload hashes, bundled runtime execution, model inference, WebGL2/H.264 support, downloads, three studio entry points, renderer isolation and idle shutdown. It uses an isolated store and an existing local image fixture, without generating new images. See [pipeline results](UPGRADE_RESULT_2026-10-19.md) and [desktop release results](DESKTOP_RESULT_2026-10-19.md) for measured limits. The portable web ZIP remains available separately; its external runtime requirements are described in [the portable guide](PORTABLE_STUDIO_README.md).
+
+Output exports now require native-resolution visual approval; see [quality review workflow](VISUAL_REVIEW.md).

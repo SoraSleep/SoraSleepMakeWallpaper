@@ -24,7 +24,7 @@ export function similarity(a,b){
  const mean=weight?total/weight:0;return mean<=12?{distance,meanDifference:Number(mean.toFixed(2)),foregroundOverlap:Number(overlap.toFixed(3))}:null;
 }
 async function inspect(file){const info=await decodePlrImage(file);const {stdout}=await exec('ffmpeg.exe',['-v','error','-i',file,'-vf','scale=32:32','-frames:v','1','-pix_fmt','rgba','-f','rawvideo','pipe:1'],{windowsHide:true,timeout:30000,maxBuffer:100000,encoding:'buffer'});return {...info,...visualFeatures(stdout)};}
-function atomic(file,value){const temp=file+'.'+randomUUID()+'.part';try{writeFileSync(temp,JSON.stringify(value,null,2),{flag:'wx'});renameSync(temp,file);}finally{if(existsSync(temp))unlinkSync(temp);}}
+function atomic(file,value){const temp=file+'.'+randomUUID()+'.part';try{writeFileSync(temp,JSON.stringify(value,null,2),{flag:'wx'});for(let attempt=0;;attempt++){try{renameSync(temp,file);break;}catch(e){if(!['EPERM','EACCES','EBUSY'].includes(e.code)||attempt>=4)throw e;Atomics.wait(new Int32Array(new SharedArrayBuffer(4)),0,0,25*(attempt+1));}}}finally{if(existsSync(temp))unlinkSync(temp);}}
 export function createPlrQuality({store,processor,inspectImage=inspect}){
  let busy=false,stopping=false;
  const folder=id=>path.dirname(path.dirname(store.artifactDirectory(id,store.getState(id).run.itemIds[0])));

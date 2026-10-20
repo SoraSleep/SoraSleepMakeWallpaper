@@ -2,7 +2,7 @@ import { MotionPairProject, parseProject, safeProjectFileName, serializeProject 
 import { strToU8, zipSync } from 'fflate';
 import { validatePackageFiles } from './packageValidator';
 import pairRuntime from '../export/pair-runtime.js?raw';
-import {prepareCleanProject} from '../export/watermarkCleanup';
+import {prepareCleanProject,assertProjectReviews} from '../export/watermarkCleanup';
 
 const escapeHtml = (value: string) => value.replace(/[&<>"']/g, character => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[character]!));
 const scriptJson = (value: unknown) => JSON.stringify(value).replace(/</g, '\\u003c').replace(/\u2028/g, '\\u2028').replace(/\u2029/g, '\\u2029');
@@ -174,12 +174,14 @@ function resize(){const d=Math.min(devicePixelRatio||1,2);C.width=Math.max(1,Mat
     preset: project.preset.id,
     offline: true,
     watermarkProcessing: project.exportSettings.watermarkProcessing,
+    visualReviewBindings: project.exportSettings.visualReviewBindings,
     title: project.title,
     entry: 'index.html',
     files: hashes,
   };
   files['manifest.json'] = strToU8(JSON.stringify(manifest, null, 2));
   files['sha256.json'] = strToU8(JSON.stringify(hashes, null, 2));
+  await assertProjectReviews(project);
   const zip = zipSync(files, { level: 0, mtime: new Date(1980, 0, 1) });
   const blob = new Blob([zip], { type: 'application/zip' });
   const url = URL.createObjectURL(blob);

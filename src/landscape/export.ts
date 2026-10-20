@@ -3,7 +3,7 @@ import {zipSync,strToU8} from 'fflate';
 import {createLandscapeRenderer} from './renderer';
 import {parseLandscapeProject,type LandscapeProject} from './schema';
 import runtime from './runtime.js?raw';
-import {cleanOutputAsset} from '../export/watermarkCleanup';
+import {cleanOutputAsset,assertAssetReviews} from '../export/watermarkCleanup';
 export {createLandscapeRenderer};
 export {defaultLandscapeSettings,parseLandscapeProject} from './schema';
 declare const VideoEncoder:any;declare const VideoFrame:any;
@@ -21,7 +21,7 @@ export async function exportLandscapeVideo(project:LandscapeProject,render:{widt
  try{encoder.configure(config);const count=Math.round(project.settings.duration*fps);for(let i=0;i<count;i++){
    if(signal?.aborted)throw new DOMException('Export cancelled','AbortError');if(failure)throw failure;if(encoder.encodeQueueSize>=fps)await encoder.flush();
    draw.draw(ctx,i/fps);const frame=new VideoFrame(canvas,{timestamp:Math.round(i*1000000/fps),duration:Math.round(1000000/fps)});try{encoder.encode(frame,{keyFrame:i%(fps*2)===0});}finally{frame.close();}onProgress?.((i+1)/count);
-  }await encoder.flush();if(failure)throw failure;muxer.finalize();return{blob:new Blob([target.buffer],{type:'video/mp4'}),width,height,fps};
+  }await encoder.flush();if(failure)throw failure;muxer.finalize();await assertAssetReviews([project.image]);return{blob:new Blob([target.buffer],{type:'video/mp4'}),width,height,fps};
  }finally{encoder.close();draw.dispose();canvas.width=canvas.height=1;}
 }
 export async function exportLandscapeDesktop(project:LandscapeProject){
@@ -41,5 +41,5 @@ export async function exportLandscapeDesktop(project:LandscapeProject){
   'preview.jpg':new Uint8Array(await preview.arrayBuffer()),[assetPath]:bytes,
  };
  const hashes:Record<string,string>={};for(const [name,data] of Object.entries(files)){hashes[name]=Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',new Uint8Array(data).buffer))).map(v=>v.toString(16).padStart(2,'0')).join('');}files['sha256.json']=strToU8(JSON.stringify(hashes,null,2));
- return{blob:new Blob([new Uint8Array(zipSync(files))],{type:'application/zip'})};
+ await assertAssetReviews([project.image]);return{blob:new Blob([new Uint8Array(zipSync(files))],{type:'application/zip'})};
 }

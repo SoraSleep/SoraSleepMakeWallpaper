@@ -10,6 +10,7 @@ export type ProjectAsset = {
   width: number;
   height: number;
   size: number;
+  visualReview?: {id:string;revision:number;sha256:string};
   rights: 'unknown' | 'verified' | 'rejected';
 };
 

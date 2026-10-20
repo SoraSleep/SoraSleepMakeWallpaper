@@ -1,6 +1,6 @@
 import { strToU8, zipSync } from 'fflate';
 import type { MotionPairProject } from '../project/projectSchema';
-import {prepareCleanProject} from './watermarkCleanup';
+import {prepareCleanProject,assertProjectReviews} from './watermarkCleanup';
 
 async function sha256(bytes: Uint8Array) {
   const digest = await crypto.subtle.digest('SHA-256', bytes.buffer as ArrayBuffer);
@@ -32,6 +32,7 @@ export async function downloadMobileDistributionBundle(project: MotionPairProjec
   for (const name of Object.keys(files).sort()) hashes[name] = await sha256(files[name]);
   files['sha256.json'] = strToU8(JSON.stringify(hashes, null, 2));
   files['manifest.json'] = strToU8(JSON.stringify({ manifestVersion: 1, packageType: 'mobile-wallpaper', title: project.title, video: `${safe}.${extension}`, staticFallback: 'static-fallback.jpg', files: hashes }, null, 2));
+  await assertProjectReviews(project);
   const zip = zipSync(files, { level: 0, mtime: new Date(1980, 0, 1) });
   const blob = new Blob([zip], { type: 'application/zip' });
   const url = URL.createObjectURL(blob); const anchor = document.createElement('a'); anchor.href = url; anchor.download = `${safe}-mobile-bundle.zip`; anchor.click(); setTimeout(() => URL.revokeObjectURL(url), 0);

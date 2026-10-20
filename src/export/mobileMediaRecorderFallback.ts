@@ -1,5 +1,5 @@
 import type { MotionPairProject } from '../project/projectSchema';
-import {prepareCleanProject} from './watermarkCleanup';
+import {prepareCleanProject,assertProjectReviews} from './watermarkCleanup';
 import { createAlignedImage } from './mobileVideoExport';
 import { prepareHiddenReveal } from './hiddenRevealFrame';
 import { prepareParallaxVideo } from './parallaxVideoFrame';
@@ -80,7 +80,7 @@ export async function exportMobileVideoFallback(project: MotionPairProject, mask
       } catch(error){window.clearInterval(renderTimer);reject(error);}
     },1000/fps);
   });
-  const blob = await stopped;
+  const blob = await stopped;await assertProjectReviews(project);
   const url = URL.createObjectURL(blob); const anchor = document.createElement('a'); anchor.href = url; anchor.download = `${project.title.toLowerCase().replace(/[^a-z0-9]+/g, '-') || 'mobile-wallpaper'}-${width}x${height}.webm`; anchor.click(); setTimeout(() => URL.revokeObjectURL(url), 0);
   return { bytes: blob.size, format: 'webm' as const, blob };
   } finally {

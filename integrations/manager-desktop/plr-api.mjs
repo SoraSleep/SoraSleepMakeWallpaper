@@ -1,4 +1,5 @@
 import {createPlrWorkflow} from './plr-workflow.mjs';
+import {createVisualReviews} from './visual-review.mjs';
 import {createWatermarkCleanup} from './watermark-cleanup.mjs';
 import os from 'node:os';
 import {createPlrPackager} from './plr-package.mjs';
@@ -20,20 +21,21 @@ export function createPlrApi({store,port=17930,imageDreamUrl='http://127.0.0.1:1
  store.recoverInterruptedRuns();
  const preflight=createPlrPreflight({store,baseUrl:imageDreamUrl,fetchImpl});
  const cleanup=createWatermarkCleanup();
+ const reviews=createVisualReviews({root:path.join(watermarkRoot,'visual-reviews'),cleanup});
  const processor=createPlrProcessor({store,cleanup});
  const quality=createPlrQuality({store,processor});
- const packager=createPlrPackager({store,quality,cleanup});
+ const packager=createPlrPackager({store,quality,cleanup,reviews});
  const listing=createPlrListing({packager});
  const landscapeEdits=createLandscapeImageEdits({baseUrl:imageDreamUrl,fetchImpl});
  const derivatives=createLandscapeDerivatives({store});
  const landscapeGallery=createLandscapeGallery({store,derivatives,cleanup});
- const landscapeExporter=createLandscapeExporter({store,gallery:landscapeGallery,derivatives,cleanup});
+ const landscapeExporter=createLandscapeExporter({store,gallery:landscapeGallery,derivatives,cleanup,reviews});
  const landscapeQuality=createLandscapeQuality({store,derivatives});
  const dispatcher=createPlrDispatcher({store,baseUrl:imageDreamUrl,fetchImpl,canSegment:segmentationAvailable});
  const workflow=createPlrWorkflow({store,dispatcher,processor,preflight,quality,packager});workflow.recover();
  const publicWorkflow=id=>{const state=workflow.read(id);return state?{...state,active:workflow.isBusy(),progress:workflow.progress(id)}:null;};
  const reply=(res,status,value)=>{res.writeHead(status,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store'});res.end(JSON.stringify(value));};
- async function cleanBytes(bytes){const hash=createHash('sha256').update(bytes).digest('hex');mkdirSync(watermarkRoot,{recursive:true});const source=path.join(watermarkRoot,hash+'.input');if(!existsSync(source))writeFileSync(source,bytes,{flag:'wx'});return cleanup.clean(source,watermarkRoot,hash);}
+ async function cleanBytes(bytes){const hash=createHash('sha256').update(bytes).digest('hex');mkdirSync(watermarkRoot,{recursive:true});const source=path.join(watermarkRoot,hash+'.input');if(!existsSync(source))writeFileSync(source,bytes,{flag:'wx'});return{...(await cleanup.clean(source,watermarkRoot,hash)),before:{file:source,sha256:hash}};}
  const server=createServer(async(req,res)=>{
   const origin=req.headers.origin,host=req.headers.host||'';
   if(!['127.0.0.1','::ffff:127.0.0.1','::1'].includes(req.socket.remoteAddress)||!/^127\.0\.0\.1:\d+$/.test(host)||origin&&!allowed.has(origin))return reply(res,403,{error:'plr-local-origin-required'});
@@ -42,9 +44,15 @@ export function createPlrApi({store,port=17930,imageDreamUrl='http://127.0.0.1:1
   if(req.method==='POST'&&(!allowed.has(origin)||req.headers['x-sorasleep-bridge']!=='1'))return reply(res,403,{error:'plr-write-origin-required'});
   try{
    const url=new URL(req.url,'http://127.0.0.1');
-   if(req.method==='POST'&&url.pathname==='/watermark-cleanup'){
+   async function jsonBody(){let body='';for await(const chunk of req){body+=chunk;if(Buffer.byteLength(body)>28500000)throw Error('visual-review-request-too-large');}return JSON.parse(body||'{}');}
+   const reviewRoute=url.pathname.match(/^\/(runs|landscape-batches)\/([a-f0-9-]{36})\/items\/([a-f0-9-]{36})\/review$/);
+   if(reviewRoute&&['GET','POST'].includes(req.method)){const [,kind,id,itemId]=reviewRoute,row=store.executionItem(id,itemId),before=row.attempts.at(-1)?.artifact;if(!before)throw Error('visual-review-source-missing');let input,regions,variant=kind==='runs'?'master':url.searchParams.get('variant')==='reviewed'?'reviewed':'original';if(kind==='runs'){const p=processor.readItem(id,itemId);if(!p?.master)throw Error('processing-required');input=p.master;regions=p.watermark?.regions;}else input=variant==='reviewed'?derivatives.resolve(id,itemId):before;const binding=kind+':'+id+':'+itemId+':'+variant;if(req.method==='GET')return reply(res,200,reviews.peek(binding,before.sha256,input.sha256));const cleaned=await cleanup.clean(input.file,path.dirname(input.file),input.sha256);return reply(res,200,reviews.prepare({binding,before,inputSha256:input.sha256,after:cleaned,regions:regions??cleaned.watermark.regions}));}
+   const reviewIdRoute=url.pathname.match(/^\/visual-reviews\/([a-f0-9]{64})(?:\/(before|after|replacement))?$/);
+   if(reviewIdRoute){const [,id,action]=reviewIdRoute;if(req.method==='GET'&&!action)return reply(res,200,reviews.get(id));if(req.method==='GET'&&['before','after'].includes(action)){const image=reviews.image(id,action);res.writeHead(200,{'Content-Type':image.mime,'Content-Length':image.bytes.length,'Cache-Control':'no-store'});res.end(image.bytes);return;}if(req.method==='POST')return reply(res,200,action==='replacement'?await reviews.replace(id,await jsonBody()):reviews.decide(id,await jsonBody()));}
+   if(req.method==='POST'&&url.pathname==='/visual-reviews/validate'){const input=await jsonBody();reviews.assertBindings(input.bindings);return reply(res,200,{valid:true});}
+   if(req.method==='POST'&&['/watermark-cleanup','/visual-reviews/assets'].includes(url.pathname)){
     const chunks=[];let size=0;for await(const chunk of req){size+=chunk.length;if(size>30000000)throw Error('watermark-image-too-large');chunks.push(chunk);}const bytes=Buffer.concat(chunks);if(!bytes.length)throw Error('watermark-image-required');
-    const cleaned=await cleanBytes(bytes),output=readFileSync(cleaned.file);res.writeHead(200,{'Content-Type':cleaned.mime,'Content-Length':output.length,'Cache-Control':'no-store','X-SoraSleep-Watermark':cleaned.watermark.status,'X-SoraSleep-Source-SHA256':cleaned.watermark.sourceSha256,'Access-Control-Expose-Headers':'X-SoraSleep-Watermark, X-SoraSleep-Source-SHA256'});res.end(output);return;
+    let cleaned=await cleanBytes(bytes);if(url.pathname==='/visual-reviews/assets'||url.searchParams.get('requireReview')==='1'){const entry=reviews.prepare({binding:'asset:'+cleaned.before.sha256,before:cleaned.before,inputSha256:cleaned.before.sha256,after:cleaned});if(url.pathname==='/visual-reviews/assets')return reply(res,200,entry);cleaned={...cleaned,...reviews.requireApproved(entry.id)};}const output=readFileSync(cleaned.file);res.writeHead(200,{'Content-Type':cleaned.mime,'Content-Length':output.length,'Cache-Control':'no-store','X-SoraSleep-Watermark':cleaned.watermark.status,'X-SoraSleep-Source-SHA256':cleaned.watermark.sourceSha256,...(cleaned.visualReview?{'X-SoraSleep-Visual-Review':JSON.stringify(cleaned.visualReview)}:{}),'Access-Control-Expose-Headers':'X-SoraSleep-Watermark, X-SoraSleep-Source-SHA256, X-SoraSleep-Visual-Review'});res.end(output);return;
    }
    if(url.pathname==='/image-dream/wallet-refresh'&&['GET','POST'].includes(req.method)){
     if(req.method==='POST'&&(dispatcher.isBusy()||workflow.isBusy()))throw Error('plr-executor-busy');
@@ -88,7 +96,7 @@ export function createPlrApi({store,port=17930,imageDreamUrl='http://127.0.0.1:1
    if(req.method==='POST'&&/^\/runs\/[a-f0-9-]{36}\/workflow\/(start|resume|pause)$/.test(url.pathname)){const parts=url.pathname.split('/'),id=parts[2],action=parts[4];if(action==='pause')return reply(res,200,{...workflow.pause(id),active:workflow.isBusy()});if(dispatcher.isBusy()||processor.isBusy()||preflight.isBusy()||quality.isBusy()||packager.isBusy())throw Error('plr-executor-busy');let body='';for await(const chunk of req){body+=chunk;if(Buffer.byteLength(body)>100000)throw Error('plr-workflow-options-too-large');}workflow.start(id,action==='start'?JSON.parse(body):undefined);return reply(res,200,publicWorkflow(id));}
    if(req.method==='POST'&&workflow.isBusy())throw Error('plr-workflow-busy');
    if(req.method==='POST'&&/^\/runs\/[a-f0-9-]{36}\/items\/[a-f0-9-]{36}\/exclude$/.test(url.pathname)){if(dispatcher.isBusy()||processor.isBusy()||preflight.isBusy()||quality.isBusy()||packager.isBusy())throw Error('plr-executor-busy');let body='';for await(const chunk of req){body+=chunk;if(Buffer.byteLength(body)>10000)throw Error('plr-request-too-large');}const parts=url.pathname.split('/');return reply(res,200,store.excludeItem(parts[2],parts[4],JSON.parse(body)));}
-   if(req.method==='GET'&&url.pathname==='/capabilities')return reply(res,200,{appId:'com.sorasleep.manager.plr',schemaVersion:1,backendVersion:2,reviewedVariants:true,qualityJobs:true,walletRefresh:true,watermarkCleanup:true,importRuns:true,preflight:true,generation:true,processing:true,segmentation:segmentationAvailable(),quality:true,packaging:true,listing:true,workflow:true,executorBusy:cleanup.isBusy()||dispatcher.isBusy()||processor.isBusy()||quality.isBusy()||packager.isBusy()||listing.isBusy()||workflow.isBusy()});
+   if(req.method==='GET'&&url.pathname==='/capabilities')return reply(res,200,{appId:'com.sorasleep.manager.plr',schemaVersion:1,backendVersion:2,reviewedVariants:true,qualityJobs:true,walletRefresh:true,watermarkCleanup:true,visualReview:true,importRuns:true,preflight:true,generation:true,processing:true,segmentation:segmentationAvailable(),quality:true,packaging:true,listing:true,workflow:true,executorBusy:reviews.isBusy()||cleanup.isBusy()||dispatcher.isBusy()||processor.isBusy()||quality.isBusy()||packager.isBusy()||listing.isBusy()||workflow.isBusy()});
    if(req.method==='GET'&&/^\/runs\/[a-f0-9-]{36}\/quality$/.test(url.pathname))return reply(res,200,quality.read(url.pathname.split('/')[2]));
    if(req.method==='POST'&&/^\/runs\/[a-f0-9-]{36}\/quality$/.test(url.pathname)){if(dispatcher.isBusy()||processor.isBusy()||preflight.isBusy()||packager.isBusy())throw Error('plr-executor-busy');return reply(res,200,await quality.analyze(url.pathname.split('/')[2]));}
    if(req.method==='POST'&&/^\/runs\/[a-f0-9-]{36}\/selection$/.test(url.pathname)){if(dispatcher.isBusy()||processor.isBusy()||preflight.isBusy()||quality.isBusy()||packager.isBusy())throw Error('plr-executor-busy');let body='';for await(const chunk of req){body+=chunk;if(Buffer.byteLength(body)>300000)throw Error('plr-selection-too-large');}return reply(res,200,quality.select(url.pathname.split('/')[2],JSON.parse(body)));}
@@ -110,7 +118,7 @@ export function createPlrApi({store,port=17930,imageDreamUrl='http://127.0.0.1:1
     const mime={'.jpeg':'image/jpeg','.jpg':'image/jpeg','.png':'image/png','.webp':'image/webp'}[path.extname(file)];if(!mime)throw Error('plr-artifact-format-invalid');
     const cleaned=await cleanup.clean(file,folder,artifact.sha256),output=readFileSync(cleaned.file);res.writeHead(200,{'Content-Type':cleaned.mime,'Content-Length':output.length,'Cache-Control':'no-store',...(url.searchParams.get('download')==='1'?{'Content-Disposition':'attachment; filename="landscape-'+String(row.ordinal).padStart(4,'0')+(cleaned.reencoded?'.png':path.extname(file))+'"'}:{})});res.end(output);return;
    }
-   if(req.method==='GET'&&/^\/runs\/[a-f0-9-]{36}$/.test(url.pathname))return reply(res,200,{...store.get(url.pathname.split('/')[2],{offset:Number(url.searchParams.get('offset')??0),limit:Number(url.searchParams.get('limit')??50)}),executorBusy:cleanup.isBusy()||dispatcher.isBusy()||processor.isBusy()||quality.isBusy()||packager.isBusy()||workflow.isBusy()});
+   if(req.method==='GET'&&/^\/runs\/[a-f0-9-]{36}$/.test(url.pathname))return reply(res,200,{...store.get(url.pathname.split('/')[2],{offset:Number(url.searchParams.get('offset')??0),limit:Number(url.searchParams.get('limit')??50)}),executorBusy:reviews.isBusy()||cleanup.isBusy()||dispatcher.isBusy()||processor.isBusy()||quality.isBusy()||packager.isBusy()||workflow.isBusy()});
    if(req.method==='POST'&&/^\/runs\/[a-f0-9-]{36}\/preflight$/.test(url.pathname)){if(dispatcher.isBusy()||processor.isBusy()||quality.isBusy()||packager.isBusy())throw Error('plr-executor-busy');return reply(res,200,await preflight.quote(url.pathname.split('/')[2]));}
    if(req.method==='POST'&&/^\/runs\/[a-f0-9-]{36}\/(start|resume|pause|reconcile)$/.test(url.pathname)){
     const parts=url.pathname.split('/'),id=parts[2],action=parts[3];
@@ -125,5 +133,5 @@ export function createPlrApi({store,port=17930,imageDreamUrl='http://127.0.0.1:1
   }catch(e){return reply(res,e.code==='ENOENT'?404:400,{error:e instanceof SyntaxError?'plr-invalid-json':e.message});}
  });
  server.requestTimeout=30000;server.headersTimeout=10000;
- return {server,isBusy:()=>cleanup.isBusy()||preflight.isBusy()||dispatcher.isBusy()||processor.isBusy()||quality.isBusy()||packager.isBusy()||listing.isBusy()||workflow.isBusy()||landscapeQuality.isBusy?.()||landscapeExporter.isBusy?.(),listen:()=>new Promise((resolve,reject)=>{server.once('error',reject);server.listen(port,'127.0.0.1',()=>resolve(server.address()));}),close:()=>new Promise(resolve=>{landscapeQuality.dispose();landscapeExporter.dispose();workflow.dispose();dispatcher.dispose();processor.dispose();quality.dispose();packager.dispose();server.closeAllConnections();server.close(resolve);})};
+ return {server,isBusy:()=>reviews.isBusy()||cleanup.isBusy()||preflight.isBusy()||dispatcher.isBusy()||processor.isBusy()||quality.isBusy()||packager.isBusy()||listing.isBusy()||workflow.isBusy()||landscapeQuality.isBusy?.()||landscapeExporter.isBusy?.(),listen:()=>new Promise((resolve,reject)=>{server.once('error',reject);server.listen(port,'127.0.0.1',()=>resolve(server.address()));}),close:()=>new Promise(resolve=>{landscapeQuality.dispose();landscapeExporter.dispose();workflow.dispose();dispatcher.dispose();processor.dispose();quality.dispose();packager.dispose();server.closeAllConnections();server.close(resolve);})};
 }
