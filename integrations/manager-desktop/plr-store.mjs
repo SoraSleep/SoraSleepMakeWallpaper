@@ -128,6 +128,7 @@ export function createPlrStore({root,beforeCommit,rename=renameSync}){
    if(input.artifact){
     const v=input.artifact;if(!/^[a-f0-9]{64}$/.test(v.sha256||''))fail('plr-artifact-hash-required');
     a.artifact={file:text(v.file,1000,true),sha256:v.sha256,bytes:integer(v.bytes,1,100000000),width:integer(v.width,1,20000),height:integer(v.height,1,20000)};
+    if(v.download)a.artifact.download={attempts:integer(v.download.attempts,1,3),elapsedMs:integer(v.download.elapsedMs,0,Number.MAX_SAFE_INTEGER)};
    }
    if(input.status==='needs_review'&&!a.artifact)fail('plr-downloaded-artifact-required');
    a.status=input.status;a.updatedAt=new Date().toISOString();if(input.error)a.error=text(input.error,1000);

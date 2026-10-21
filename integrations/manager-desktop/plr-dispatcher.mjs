@@ -1,8 +1,9 @@
+import {downloadArtifact} from './artifact-download.mjs';
 import {createProfileStudioClient} from './profile-studio-client.mjs';
 import {providerResponse} from './provider-response.mjs';
 import {createPlrPreflight} from './plr-preflight.mjs';
-import {createHash,randomUUID} from 'node:crypto';
-import {writeFileSync,renameSync,existsSync,unlinkSync} from 'node:fs';
+import {randomUUID} from 'node:crypto';
+import {renameSync,existsSync,unlinkSync} from 'node:fs';
 import {execFile} from 'node:child_process';import {promisify} from 'node:util';import path from 'node:path';
 const exec=promisify(execFile),wait=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 export async function decodePlrImage(file){
@@ -34,11 +35,8 @@ export function createPlrDispatcher({store,baseUrl='http://127.0.0.1:17897',fetc
   const asset=result.assets[0],url=new URL(asset.url);if(url.origin!==base.origin||!url.pathname.startsWith('/downloads/')||url.search||url.hash)throw Error('plr-artifact-url-invalid');
   const folder=store.artifactDirectory(id,row.id),temporary=path.join(folder,randomUUID()+'.part');
   try{
-   const response=await fetchImpl(url,{signal:AbortSignal.timeout(60000)});if(!response.ok)throw Error('plr-download-failed');
-   if(Number(response.headers?.get('content-length'))>100000000)throw Error('plr-download-too-large');
-   const chunks=[];let total=0;for await(const chunk of response.body){total+=chunk.length;if(total>100000000)throw Error('plr-download-too-large');chunks.push(Buffer.from(chunk));}
-   const bytes=Buffer.concat(chunks),sha256=createHash('sha256').update(bytes).digest('hex');if(asset.assetId!=='sha256:'+sha256)throw Error('plr-artifact-hash-mismatch');
-   writeFileSync(temporary,bytes,{flag:'wx'});const p=await decode(temporary),file=path.join(folder,'source.'+p.extension);renameSync(temporary,file);return {file,sha256,bytes:total,width:p.width,height:p.height};
+   if(!/^sha256:[a-f0-9]{64}$/.test(asset.assetId??''))throw Error('plr-artifact-hash-mismatch');
+   const downloaded=await downloadArtifact({url,target:temporary,expectedHash:asset.assetId.slice(7),fetchImpl,sleep}),p=await decode(temporary),file=path.join(folder,'source.'+p.extension);renameSync(temporary,file);return {file,...downloaded,width:p.width,height:p.height};
   }finally{if(existsSync(temporary))unlinkSync(temporary);}
  }
  async function execute(id,release){
