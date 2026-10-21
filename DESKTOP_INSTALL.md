@@ -35,3 +35,5 @@ Version1.0.4 adds bounded streamed image downloads and same-asset transport retr
 The final1.0.4 installer (including fast source previews) has SHA-256 `e6895294799823ddcf3fc5a93fa9c80a9b02797dfa9e3828643400ef680de82e`. Product cleanup and visual review gates remain required.
 
 Version1.0.5 fixes current reservation display across paginated batches and keeps historical quotes separate. Previous version checksums refer to their explicitly named releases.
+
+The1.0.5 installer SHA-256 is `84c2bdfb3187d7adbf7944c4a813fe19ad6c6128e1e14d05382dba79ee757763`. See [current credit accounting](CREDIT_DISPLAY.md).
