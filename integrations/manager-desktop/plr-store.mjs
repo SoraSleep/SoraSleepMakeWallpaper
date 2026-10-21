@@ -1,3 +1,4 @@
+import {creditUsage} from './credit-usage.mjs';
 import {createHash,randomUUID} from 'node:crypto';
 import {mkdirSync,readFileSync,writeFileSync,renameSync,openSync,closeSync,unlinkSync,readdirSync,existsSync} from 'node:fs';
 import path from 'node:path';
@@ -87,7 +88,7 @@ export function createPlrStore({root,beforeCommit,rename=renameSync}){
   integer(offset,0,5000);integer(limit,1,100);
   const m=manifest(id),state=read(path.join(runDir(id),'state.json')),rows=m.itemIds.map(itemId=>item(id,itemId)),counts={};
   for(const row of rows)counts[row.status]=(counts[row.status]??0)+1;
-  return {run:m,state,counts,total:rows.length,offset,items:rows.slice(offset,offset+limit)};
+  return {run:m,state,counts,creditUsage:creditUsage(m,rows,state.preflight),total:rows.length,offset,items:rows.slice(offset,offset+limit)};
  }
  function beginAttempt(id,itemId,{expectedRevision,creditsReserved=0}={}){
   return locked(()=>{const m=manifest(id);if(!m.itemIds.includes(itemId))fail('plr-item-not-in-run');const r=item(id,itemId);

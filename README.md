@@ -10,7 +10,7 @@ Image Dream owns provider login and generation credits. MakeWallpaper does not s
 
 ## Windows desktop
 
-The user-scope 1.0.4 installer bundles Electron, Node, FFmpeg/FFprobe, Python image libraries and the BiRefNet lite model. See [desktop installation and build instructions](DESKTOP_INSTALL.md). The desktop uses its own persistent data folder and leaves existing Manager/browser stores in place. Experimental Artwork Plan/Product Center backend routes are outside the packaged core scope.
+The user-scope 1.0.5 installer bundles Electron, Node, FFmpeg/FFprobe, Python image libraries and the BiRefNet lite model. See [desktop installation and build instructions](DESKTOP_INSTALL.md). The desktop uses its own persistent data folder and leaves existing Manager/browser stores in place. Experimental Artwork Plan/Product Center backend routes are outside the packaged core scope.
 
 The release is unsigned. A fresh Windows VM test and an automatic updater are not yet certified. Installer binaries, model weights, private stores and test media are intentionally excluded from Git.
 
@@ -43,3 +43,5 @@ The desktop smoke test verifies installed payload hashes, bundled runtime execut
 Output exports now require native-resolution visual approval; see [quality review workflow](VISUAL_REVIEW.md).
 
 Batch stability and streamed download recovery are documented in [BATCH_STABILITY.md](BATCH_STABILITY.md).
+
+Current credit reservations are separate from historical quotations; see [CREDIT_DISPLAY.md](CREDIT_DISPLAY.md).
