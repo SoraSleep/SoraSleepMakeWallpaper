@@ -271,7 +271,7 @@ export function BatchGallery({
                 #{item.ordinal} · {item.status}
               </div>
             )}
-            <div className="landscape-gallery-copy">{item.sourceUrl&&<VisualReviewButton version={(item.sha256??'')+(item.reviewed?.revision??'')} route={'/landscape-batches/'+runId+'/items/'+item.id+'/review'} label={'Duyệt ảnh #'+item.ordinal}/>} {item.reviewed&&<VisualReviewButton version={(item.sha256??'')+(item.reviewed?.revision??'')} route={'/landscape-batches/'+runId+'/items/'+item.id+'/review?variant=reviewed'} label={'Duyệt bản sửa #'+item.ordinal}/>}
+            <div className="landscape-gallery-copy"><small>Preview ảnh nguồn · chưa phải thành phẩm</small>{item.sourceUrl&&<VisualReviewButton version={(item.sha256??'')+(item.reviewed?.revision??'')} route={'/landscape-batches/'+runId+'/items/'+item.id+'/review'} label={'Duyệt ảnh #'+item.ordinal}/>} {item.reviewed&&<VisualReviewButton version={(item.sha256??'')+(item.reviewed?.revision??'')} route={'/landscape-batches/'+runId+'/items/'+item.id+'/review?variant=reviewed'} label={'Duyệt bản sửa #'+item.ordinal}/>}
               {thumbnailErrors.has(item.id) && (
                 <div className="landscape-gallery-thumb-error">
                   Thumbnail chưa tải được.

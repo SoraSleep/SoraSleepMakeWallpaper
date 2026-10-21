@@ -20,3 +20,7 @@ Validation includes a64MB streamed fixture with less than48MB RSS growth, an act
 - `npm run test:manager-integration`: offline regression suite, including500 simulated tasks. Simulated500 records do not constitute500 live generations.
 
 The reports and images are local and excluded from Git. Local evidence is under `real-test-output/batch-soak-02/review.html`.
+
+Gallery thumbnails now resize source images directly, with an explicit source-preview label. Browsing a page does not run native-resolution watermark restoration. Explicit review and product exports still perform cleanup and require approvals. Thumbnail cache recipe changes invalidate older preview caches.
+
+Measured on the50 real images: source preview generation7.52seconds, cached reads0.73seconds. The UI fixture still renders24cards/page for500records and requests no full-size images while browsing. These timings are thumbnail measurements, not50 native restoration times. Final regression:85tests passed.

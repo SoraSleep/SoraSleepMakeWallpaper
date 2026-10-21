@@ -1,6 +1,6 @@
 import {readFileSync,writeFileSync,existsSync,renameSync,unlinkSync,realpathSync} from 'node:fs';import path from 'node:path';import {createHash,randomUUID} from 'node:crypto';import {execFile} from 'node:child_process';import {promisify} from 'node:util';
 const exec=promisify(execFile),sha=bytes=>createHash('sha256').update(bytes).digest('hex');
-export function createLandscapeGallery({store,derivatives,cleanup}){
+export function createLandscapeGallery({store,derivatives}){
  let tail=Promise.resolve();const pending=new Map();
  function rows(id){if(store.getState(id).run.preset.studio!=='text-to-image-landscape')throw Error('landscape-batch-not-found');return store.executionItems(id);}
  function selectionFile(id){const run=store.getState(id).run;return path.join(path.dirname(path.dirname(store.artifactDirectory(id,run.itemIds[0]))),'gallery-selection.json');}
@@ -14,8 +14,10 @@ export function createLandscapeGallery({store,derivatives,cleanup}){
  async function thumbnail(id,itemId){
   if(store.getState(id).run.preset.studio!=='text-to-image-landscape')throw Error('landscape-batch-not-found');const row=store.executionItem(id,itemId),source=row.attempts.at(-1)?.artifact;if(!source)throw Error('landscape-source-not-downloaded');const folder=realpathSync(store.artifactDirectory(id,itemId)),sourceFile=realpathSync(source.file);if(path.dirname(sourceFile)!==folder||sha(readFileSync(sourceFile))!==source.sha256)throw Error('landscape-source-changed');
   const key=id+':'+itemId;if(pending.has(key))return pending.get(key);if(pending.size>=64)throw Error('landscape-thumbnail-queue-full');
-  const work=tail.then(async()=>{const thumbRecipe='landscape-thumb-480-v1'+(cleanup?':'+cleanup.recipe:''),file=path.join(folder,'landscape-thumbnail.jpg'),meta=file+'.json';if(existsSync(file)&&existsSync(meta)){const old=JSON.parse(readFileSync(meta,'utf8')),bytes=readFileSync(file);if(old.sourceSha256===source.sha256&&old.recipe===thumbRecipe&&old.sha256===sha(bytes))return bytes;}
-   const working=cleanup?await cleanup.clean(sourceFile,folder,source.sha256):{file:sourceFile};
+  const work=tail.then(async()=>{const thumbRecipe='landscape-source-preview-480-v2',file=path.join(folder,'landscape-thumbnail.jpg'),meta=file+'.json';if(existsSync(file)&&existsSync(meta)){const old=JSON.parse(readFileSync(meta,'utf8')),bytes=readFileSync(file);if(old.sourceSha256===source.sha256&&old.recipe===thumbRecipe&&old.sha256===sha(bytes))return bytes;}
+   // Editor source previews must not run full-resolution restoration. Product
+   // exports and explicit visual review retain their cleanup/approval gates.
+   const working={file:sourceFile};
    const temp=path.join(folder,randomUUID()+'.jpg');try{await exec('ffmpeg.exe',['-v','error','-i',working.file,'-vf','scale=480:-2','-frames:v','1','-q:v','4','-y',temp],{windowsHide:true,timeout:30000});const bytes=readFileSync(temp);if(sha(readFileSync(sourceFile))!==source.sha256)throw Error('landscape-source-changed');renameSync(temp,file);writeFileSync(meta,JSON.stringify({recipe:thumbRecipe,sourceSha256:source.sha256,sha256:sha(bytes)}));return bytes;}finally{if(existsSync(temp))unlinkSync(temp);}
   });tail=work.catch(()=>{});pending.set(key,work);try{return await work;}finally{pending.delete(key);}
  }
