@@ -31,3 +31,5 @@ Install development dependencies with `npm ci`; configure `runtime.local.json` t
 Version1.0.3 adds persistent native-resolution output review and approval gates. Follow [the review workflow](VISUAL_REVIEW.md) before packaging products. The installer SHA-256 is `bd24d081028b98be3097d5e6f12f2e764716777fe22a44080be15ed2f3911d4e`.
 
 Version1.0.4 adds bounded streamed image downloads and same-asset transport retries. See [batch stability evidence](BATCH_STABILITY.md). The earlier SHA-256 above belongs to the1.0.3 installer.
+
+The final1.0.4 installer (including fast source previews) has SHA-256 `e6895294799823ddcf3fc5a93fa9c80a9b02797dfa9e3828643400ef680de82e`. Product cleanup and visual review gates remain required.
