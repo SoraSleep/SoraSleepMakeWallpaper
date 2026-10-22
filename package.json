@@ -2,7 +2,7 @@
   "name": "motion-pair-studio",
   "private": true,
   "version": "0.1.0",
-  "desktopVersion": "1.0.5",
+  "desktopVersion": "1.0.6",
   "type": "module",
   "scripts": {
     "setup:watermark-model": "node scripts/setup-watermark-model.mjs",

@@ -4,7 +4,7 @@ The user-scope Setup installs the three core studios, an Electron window, Node, 
 
 ## Install and use
 
-Run `SoraSleep-MakeWallpaper-Setup-1.0.5.exe`, choose a writable installation directory and open the desktop or Start menu shortcut. No administrator access is requested. This build is unsigned; it has no publisher certificate or automatic updater. The fixed Python runtime excludes pip/ensurepip development installers; they are not needed for image processing.
+Run `SoraSleep-MakeWallpaper-Setup-1.0.6.exe`, choose a writable installation directory and open the desktop or Start menu shortcut. No administrator access is requested. This build is unsigned; it has no publisher certificate or automatic updater. The fixed Python runtime excludes pip/ensurepip development installers; they are not needed for image processing.
 
 Choose Reveal, PLR Collection Studio or Landscape Batch. Use the Application menu to open the data folder or select the installed `SoraSleep Image Dream.exe`. Selecting Image Dream saves only its executable path in local configuration. It does not import account data. Closing MakeWallpaper while work is active is blocked; pause and wait for the current task, then close. The owned backend exits when idle. If its desktop owner disappears unexpectedly, it waits for in-flight work to become idle before exiting.
 
@@ -16,9 +16,9 @@ This packages the same core scope as the portable release. Experimental Artwork 
 
 ## Automatic output cleanup in 1.0.2
 
-Reveal A/B wallpaper assets, mobile MP4/WebM and static fallback images, Landscape downloads/ZIPs/thumbnails and PLR masters/transparent images/packages pass through one local cleanup service. It recognizes the known Dreamina bottom-right logo and upper-left AI badge at multiple scales. Detailed backgrounds use a pinned OpenCV LaMa ONNX model (92,591,623 bytes, Apache-2.0); flat regions use local inpainting. It preserves dimensions and all pixels outside the reconstructed rectangles, and retains original source files and hashes. Clean inputs are returned byte-for-byte. Model inference runs locally on CPU and consumes no generation credits. The first uncached image can take tens of seconds; subsequent exports reuse verified cached outputs.
+Reveal A/B wallpaper assets, mobile MP4/WebM and static fallback images, Landscape downloads/ZIPs/thumbnails and PLR masters/transparent images/packages pass through one local cleanup service. It recognizes the known Dreamina bottom-right logo and upper-left AI badge at multiple scales. Detailed backgrounds use a pinned OpenCV LaMa ONNX model (92,591,623 bytes, Apache-2.0); flat regions use local inpainting. It preserves dimensions and all pixels outside the reconstruction mask, and retains original source files and hashes. Clean inputs are returned byte-for-byte. Model inference runs locally on CPU and consumes no generation credits. The first uncached image can take tens of seconds; subsequent exports reuse verified cached outputs.
 
-Ambiguous detection, residual known marks, model/cache corruption and unavailable cleanup block export rather than returning an unprocessed product. Rebuild historical ZIPs created before this recipe. Editing backups and explicit before/after source previews retain originals. This recognizes two provider marks, not every possible logo, signature or text. Inspect restored regions at full size: inpainting reconstructs the scene and may change details within those regions. Generated-origin records remain in processing manifests; cleanup does not make AI artwork human-made.
+Uncertain detection and residual signals require explicit visual review; model/cache corruption and unavailable cleanup block processing. Final product exports require approved review receipts. Rebuild historical ZIPs created before this recipe. Editing backups and explicit before/after source previews retain originals. This recognizes two provider marks, not every possible logo, signature or text. Inspect restored regions at full size: inpainting reconstructs the scene and may change details within those regions. Generated-origin records remain in processing manifests; cleanup does not make AI artwork human-made.
 
 For source builds, configure the model folder and run `npm run setup:watermark-model`; this downloads the pinned model and verifies SHA-256. The desktop installer bundles the model and its license, so installed use needs no model download.
 
@@ -37,3 +37,5 @@ The final1.0.4 installer (including fast source previews) has SHA-256 `e68952947
 Version1.0.5 fixes current reservation display across paginated batches and keeps historical quotes separate. Previous version checksums refer to their explicitly named releases.
 
 The1.0.5 installer SHA-256 is `84c2bdfb3187d7adbf7944c4a813fe19ad6c6128e1e14d05382dba79ee757763`. See [current credit accounting](CREDIT_DISPLAY.md).
+
+Version1.0.6 improves faint-badge recognition, glyph masks, native-resolution reconstruction and reviewable uncertainty. See [watermark fixes and replay tests](WATERMARK_FIX.md).
